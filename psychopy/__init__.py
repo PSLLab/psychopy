@@ -12,7 +12,7 @@
 import os
 import sys
 
-__version__ = '3.2.4'
+__version__ = '3.2.4.1'
 __license__ = 'GNU GPLv3 (or more recent equivalent)'
 __author__ = 'Jonathan Peirce'
 __author_email__ = 'jon.peirce@gmail.com'
@@ -44,6 +44,5 @@ if 'installing' not in locals():
     from psychopy.preferences import prefs
     for pathName in prefs.general['paths']:
         sys.path.append(pathName)
-    
-    from psychopy.tools.versionchooser import useVersion, ensureMinimal
 
+    from psychopy.tools.versionchooser import useVersion, ensureMinimal
