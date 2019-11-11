@@ -263,7 +263,7 @@ class KeyboardComponent(BaseComponent):
 
         if self.exp.settings.params['Enable Escape'].val:
             code = ('\n# check for quit:\n'
-                    'if "escape" == theseKeys:\n'
+                    'if "f12" == theseKeys:\n'
                     '    endExpNow = True\n')
             buff.writeIndentedLines(code)
 

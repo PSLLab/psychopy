@@ -308,7 +308,7 @@ class SettingsComponent(object):
         into a dict from a string (which can lead to errors) use this function
         :return: expInfo as a dict
         """
-        
+
         infoStr = self.params['Experiment info'].val.strip()
         if len(infoStr) == 0:
             return {}
@@ -329,7 +329,7 @@ class SettingsComponent(object):
                     infoDict[key] = ast.literal_eval(val)
 
         except (ValueError, SyntaxError):
-            """under Python3 {'participant':'', 'session':02} raises an error because 
+            """under Python3 {'participant':'', 'session':02} raises an error because
             ints can't have leading zeros. We will check for those and correct them
             tests = ["{'participant':'', 'session':02}",
                     "{'participant':'', 'session':02}",
@@ -386,7 +386,7 @@ class SettingsComponent(object):
             'Builder (v%s),\n'
             '    on %s\n' % (version, localDateTime) +
             'If you publish work using this script the most relevant '
-            'publication is:\n\n'            
+            'publication is:\n\n'
             u'    Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, '
             u'Kastman E, Lindeløv JK. (2019) \n'
             '        PsychoPy2: Experiments in behavior made easy Behav Res 51: 195. \n'
@@ -430,6 +430,10 @@ class SettingsComponent(object):
             "from numpy.random import %s\n" % ', '.join(_numpyRandomImports) +
             "import os  # handy system and path functions\n" +
             "import sys  # to get file system encoding\n"
+            "if platform != 'darwin':\n"
+            "    import ctypes\n"
+            "    xlib = ctypes.cdll.LoadLibrary('libX11.so')\n"
+            "    xlib.XInitThreads()\n"
             "\n")
 
         # Write custom import statements, line by line.
@@ -561,7 +565,7 @@ class SettingsComponent(object):
         # Write header comment
         starLen = "*"*(len(jsFilename) + 9)
         code = ("/%s \n"
-               " * %s Test *\n" 
+               " * %s Test *\n"
                " %s/\n\n")
         buff.writeIndentedLines(code % (starLen, jsFilename.title(), starLen))
 
