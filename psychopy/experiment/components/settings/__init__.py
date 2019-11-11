@@ -430,7 +430,7 @@ class SettingsComponent(object):
             "from numpy.random import %s\n" % ', '.join(_numpyRandomImports) +
             "import os  # handy system and path functions\n" +
             "import sys  # to get file system encoding\n"
-            "if platform == 'linux':\n"
+            "if sys.platform == 'linux':\n"
             "    import ctypes\n"
             "    xlib = ctypes.cdll.LoadLibrary('libX11.so')\n"
             "    xlib.XInitThreads()\n"
