@@ -260,6 +260,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
                                           dpi=72, italic=self.italic,
                                           bold=self.bold)
             self.__dict__['font'] = font
+            if self._pygletTextObj is not None:
+                self._pygletTextObj.font = self._font
         else:
             if font is None or len(font) == 0:
                 self.__dict__['font'] = pygame.font.get_default_font()
@@ -358,11 +360,18 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """
         if self.win.winType in ["pyglet", "glfw"]:
             if pyglet.version < '1.4':
-                self._pygletTextObj = pyglet.font.Text(
-                    self._font, self.text,
-                    halign=self.alignHoriz, valign=self.alignVert,
-                    color=(1.0, 1.0, 1.0, self.opacity),
-                    width=self._wrapWidthPix)  # width of the frame
+                if self._pygletTextObj is None:
+                    self._pygletTextObj = pyglet.font.Text(
+                        self._font, self.text,
+                        halign=self.alignHoriz, valign=self.alignVert,
+                        color=(1.0, 1.0, 1.0, self.opacity),
+                        width=self._wrapWidthPix)  # width of the frame
+                else:
+                    self._pygletTextObj.text = self.text
+                    # self._pygletTextObj.font = self._font
+                    # self._pygletTextObj.halign = self.alignHoriz
+                    # self._pygletTextObj.valign = self.alignVert
+                    # self._pygletTextObj.width = self._wrapWidthPix
             else:
                 self._pygletTextObj = pyglet.text.Label(
                     self.text, self.font, int(self._heightPix),
@@ -667,6 +676,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         bottom of a 'y') at the `pos`.
         """
         self.__dict__['alignVert'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.valign = self.alignVert
         self._needSetText = True
 
     @attributeSetter
@@ -674,6 +685,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """The horizontal alignment ('left', 'right' or 'center')
         """
         self.__dict__['alignHoriz'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.halign = self.alignHoriz
         self._needSetText = True
 
     @attributeSetter
@@ -711,6 +724,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self._wrapWidthPix = convertToPix(pos=numpy.array([0, 0]),
                                           vertices=verts,
                                           units=self.units, win=self.win)[0]
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.width = self._wrapWidthPix
         self._needSetText = True
 
     @property
