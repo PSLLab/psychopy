@@ -152,7 +152,19 @@ class Keyboard:
             else:
                 allInds, allNames, allKBs = hid.get_keyboard_indices()
                 if device==-1:
-                    self._ids = allInds
+                    num_kbs = 0
+                    # hackec this together because polling multiple fake keyboards in Linux
+                    # led to dropped frames
+                    # linnux PCs had 4 keyboards including the power button
+                    for kindex, name in enumerate(allNames):
+                        if 'keyboard' in name.lower() and 'virtual' not in name.lower():
+                            num_kbs += 1
+                            if num_kbs == 1:
+                                self._ids = [allInds[kindex]]
+                            else:
+                                raise Exception('found more than one real keyboard')
+                    if num_kbs == 0:
+                        raise Exception('did not find any keyboards')
                 elif type(device) in [list, tuple]:
                     self._ids = device
                 else:
