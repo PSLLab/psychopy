@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 # Acknowledgements:
@@ -26,7 +26,14 @@ import weakref
 import serial
 import numpy as np
 from copy import copy, deepcopy
-from time import sleep, clock
+from time import sleep
+import time
+
+# Python 3.8 removed time.clock()
+if sys.version_info < (3, 8):
+    clock = time.clock
+else:
+    clock = time.perf_counter
 
 from . import shaders
 from psychopy import logging, core

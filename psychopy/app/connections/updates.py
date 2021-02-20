@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -246,15 +246,15 @@ class SuggestUpdateDialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.onButton, id=wx.ID_NO)
         btnSizer.Add(self.noBtn, wx.ALIGN_LEFT)
         btnSizer.Add((60, 20), 0, wx.EXPAND)
-        btnSizer.Add(self.cancelBtn, wx.ALIGN_RIGHT)
+        btnSizer.Add(self.cancelBtn)
 
         if not sys.platform.startswith('linux'):
             self.yesBtn.SetDefault()
             btnSizer.Add((5, 20), 0)
-            btnSizer.Add(self.yesBtn, wx.ALIGN_RIGHT)
+            btnSizer.Add(self.yesBtn)
 
         # configure sizers and fit
-        sizer.Add(btnSizer, flag=wx.ALIGN_RIGHT | wx.ALL, border=5)
+        sizer.Add(btnSizer, flag= wx.ALL, border=5)
         self.Center()
         self.SetSizerAndFit(sizer)
 
@@ -313,9 +313,9 @@ class InstallUpdateDialog(wx.Dialog):
         self.cancelBtn = wx.Button(self, -1, _translate('Close'))
         self.Bind(wx.EVT_BUTTON, self.onCancel, self.cancelBtn)
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        btnSizer.Add(self.installBtn, flag=wx.ALIGN_RIGHT)
-        btnSizer.Add(self.cancelBtn, flag=wx.ALIGN_RIGHT | wx.LEFT, border=5)
-        mainSizer.Add(btnSizer, flag=wx.ALIGN_RIGHT | wx.ALL, border=5)
+        btnSizer.Add(self.installBtn)
+        btnSizer.Add(self.cancelBtn, flag= wx.LEFT, border=5)
+        mainSizer.Add(btnSizer, flag= wx.ALL, border=5)
 
         self.SetSizerAndFit(mainSizer)
         self.SetAutoLayout(True)
@@ -401,7 +401,7 @@ class InstallUpdateDialog(wx.Dialog):
             info = self.doAutoInstall()
         else:
             info = self.installZipFile(self.filename)
-        self.statusMessage.SetLabel(info)
+        self.statusMessage.SetLabel(str(info))
         self.Fit()
 
     def fetchPsychoPy(self, v='latest'):
@@ -618,9 +618,10 @@ def sendUsageStats():
         OSXver, junk, architecture = platform.mac_ver()
         systemInfo = "OSX_%s_%s" % (OSXver, architecture)
     elif sys.platform.startswith('linux'):
+        from distro import linux_distribution
         systemInfo = '%s_%s_%s' % (
             'Linux',
-            ':'.join([x for x in platform.dist() if x != '']),
+            ':'.join([x for x in linux_distribution() if x != '']),
             platform.release())
         if len(systemInfo) > 30:  # if it's too long PHP/SQL fails to store!?
             systemInfo = systemInfo[0:30]

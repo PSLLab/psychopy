@@ -4,10 +4,241 @@ Changelog
 .. note::
   Version numbers
 
-  In general, when a new feature is added the second number is incremented (e.g. 1.00.05 -> 1.01.00). Those releases might break previous code you've written because new features often need slight changes to other things.
-  Changes to the final digit (1.00.05 -> 1.00.06) indicate a bug-fixing release or very minor new features that shouldn't require code changes from the user.
+  PsychoPy versions take the format: Major.Version.Bugfix
+
+  - Until 2019 Major was the overall PsychoPy version (1, 2, or 3) but from 2020 that indicates the year.
+  - Version (middle number) indicates a release with new features, which we try to limit to 2-3 times per year.
+    We don't recommend you change versions during mid-experiment but you can fix a version for your study with
+    :ref:`useVersion`.
+  - Bugfix number indicates a minor update purely to fix bugs and hopefully not changing the behavior of your
+    study in any way.
 
 CHANGES, which are identified in this dark red text, typically indicate things that alter the PsychoPy behaviour in a way that could break compatibility. Be especially wary of those!
+
+PsychoPy 2020.2.8
+-----------------
+
+FIXES:
+
+- support for macOS 11.1 Big Sur (updated mac pyglet to 1.5.11 and mac Python to 3.6.8)
+- fixed default blank text in textBox for online studies actually showing a pair of quotes #786e1d3f7
+- flag to alphabetically sort Exp Info fields was being set always true #3279
+- Position and Size params for Form Component were being requested twice #d45ca99c9
+- fixed annoying (but harmless) error 'ModuleNotFoundError: import of pyglet halted; None in sys.modules' 
+- further fixes to Runner not showing print() statements #e0ec67e6f
+- Routine panels now support mouse scroll wheel to navigate #6da3707d3
+
+PsychoPy 2020.2.7
+-----------------
+
+(Binaries never released)
+
+PsychoPy 2020.2.6
+-----------------
+
+FIXES:
+
+- missing resource error in some online experiments, caused by incorrect relative relative paths in Settings>Online>Resources #3285
+- JavaScript Code Components for Before Experiment is now moved earlier in the script - it needed to be positioned before first function opens #3289
+- TextBox was missing setBorderColor and setFillColor so these needed code to change dynamically #eb915732d
+- TextBox was carrying the text from one trial into the next #330f5fa1d
+- Coder FoldAll menu item was having no effect #6d4f66b0d
+- TextStim opacity can now be set dynamically #1045
+- Loop OK button was sometimes left disabled if invalid inputs #3a1104f71
+- fixed non-uniform probabilities of conditions file row selection suggested in docs #3256
+- workaround for scipy.optimize import error on windows machines that are using BitLocker #3287
+- if a TextBox is the only editable thing on the screen then give it focus #3269
+
+PsychoPy 2020.2.5
+-----------------
+
+FIXES:
+
+- Now code-signing the installer on Windows as well as macOS
+- Failing to send print statements to output, depending on how PsychoPy was launched #4773ec32dcf Only occurred if you launch by double-clicking file or if you close Runner
+- Coder crashing on macOS when using editor with autocomplete=True #687e81dfb
+- ioHub fix for unicode strings #5451ea49a
+- Marker color on RatingScale was not resetting (but use Slider anyway!) #3140
+- Runner sometimes ran wrong script (and never knew which to stop). Now better tracking of running process #3142
+- Slider not honoring the order from the Routine (should render in order from top down) #9e0299544
+- JavaScript Code Components for Before Experiment were having no effect #3151
+- error with trying to poll() on a script process that was NoneType #cc56713cc
+- Editable textboxes were still able to be drawn if you clicked on them (even when they were not told to draw()) #8253f0696
+- warn against using global JS names in experiment #3177
+- Brush not being reset in JavaScript #88812c3bd
+- Movie reset issue #3183
+- countinueRoutine=False had no effect for online studies if in Begin Routine block
+- errors that should have appeared in the console were sometimes appearing in the (app) error dialog #d44f24d63
+- more tolerant of whitespace in Emotiv Client ID file
+- Runner AddTask dialog had wrong format for file filter #3213
+- Sound volume attribute was having no effect on the PTB backend #3215
+- Fixed fill/line colors of TextBox #3222
+- Error in JavaScript code when Movie Component had blank stop time #0b4ddcffc
+- Better handling of stdout encodings when console not set to utf-8 encoding #d77535906
+- Improved Resources box for the online (using relative references #c9558bfd8 and resize with dialog #d607271db)
+- JavaScript code-conversion now uses our own built-in `round()` function mimicking the same function in Python #da426d9e37e
+
+PsychoPy 2020.2.4
+-----------------
+
+FIXES:
+
+- improved search for resources files whne compiling JS (was crashing if using root folder and using code to specify the conditions file) #09816985d5
+- the `Before Experiment` section of Code Components wasn't being written for JavaScript components #bbfd310
+- error with wx complaining about Alignment (in wx 4.1) #a32e2ca #ae508d6
+- TextBox Component default size is None (=autoexpand)
+- TextBox `editable=True` had no effect on the Builder outputs to JavaScript
+- themes menu correctly updates what thte current them is in all open windows #c5cdc49
+- custom fonts that didn't provide a "family name" were causing the font search to crash #ef078ab
+- bug trying to us an invalid "useRunner" preference 3532e4c
+- JavaScript studies failed if there were 2 Mouse Components in a single Routine #0e0b26d4dcc #32a6be2
+- improved Big Five Inventory demo
+- blank TextBox Component should use blank string rather than None #39bf1bb
+- further fix to macOS stapling (might not have worked for users with no internet connection?)
+- Form Component now honors being set to show only at certain times (in keeping with other visual Components) #35ad5bc
+- Coder now correctly providing syntax styling for JS and C
+
+PsychoPy 2020.2.3
+-----------------
+
+FIXES:
+
+- **Mac version now fully signed and notarized for GateKeeper!** For some time it's been an annoyance that Apple would block PsychoPy because of it not being from a "known developer" but in recent updates GateKeeper has become so aggressive the app has been crashing on startup for some macOS versions. Hopefully Apple will now let us launch in peace!
+- **better handling of non-loading fonts in the application** On mac some fonts weren't being found (although this *might* be due to the now-solved gatekeeper issue)
+- **auto-translate py->js for parameters with $** We were translating code components but not parameter boxes where the user was switching to code using $  #3064
+- better handling when a piece of code fails to convert (warning not error) #3063
+- show progress (in Runner) while syncing project with Pavlovia #3061
+- various fixes and additions to Japanese translations
+
+PsychoPy 2020.2
+-----------------
+
+NEW FEATURES:
+
+- New look, including dark mode, customizable themes and new flat buttons (you can choose a Classic theme to get the old buttons back for comfort)
+- Now have an class for /editable/ text called **TextBox2**:
+
+  - very fast rendering (faster than the original TextStim)once the font characters are uploaded
+  - supports an editable flag which allows it to pick up text input to the window including full unicode support for your keyboard
+  - you can apply (fake) bold and italics within the text using <i></i> and <b></b>
+  - if multiple editable TextBoxes are onscreen together you can tab between them
+
+- **Form** components now work online and support (in both lab-based and online versions):
+
+  - free text
+  - ratings and sliders
+  - choice boxes (radio buttons)
+  - descriptions (no response)
+  - headings
+
+- Improved Coder:
+
+  - call-tips for code and better auto-completion
+  - view the folders and the structure of the current file
+
+- Improved Runner:
+
+  - Builder/Coder provide options to run directly (Ctrl-R) and Runner only then used to show stdout
+  - more visible how to save/open Runner filelists
+  - Runner filelists saved as `.psyrun` files and can be loaded into PsychoPy with a double-click
+
+- Online studies don't need to use html folder. Keep everything where it is! If resources aren't found automatically (and you would have put them in to the Resources folder) you can now add them to the ExperimentSettings>Online>AdditionalResources
+- Added support for Emotive and BrainProducts EEG hardware
+- CSV data outputs now have an option to set the delimitter (e.g. `;` or `\t` rather than `,`)
+- Brush component now has an option to allow drawing without having to hold down the mouse button #2980
+
+CHANGES:
+
+- _PsychoJS_ code now uses the same syntax for loop termination as _PsychoPy_ allowing either `nameOfLoop.finished=true` or `currentLoop.finished=true`
+- Python 2.7 is no longer supported. We recommend Python versions 3.6 or 3.7 (3.8 is not tested likely to work)
+
+FIXES:
+
+- Various compatibility fixes for JS code from PsychoPy
+
+  - loop termination now working the same as Python and correctly auto-translated
+  - movies *should* now restart correctly, at least on browsers that support the seek behavior
+  - randint is now included and imported in all scripts
+  - sin, cos, pi etc are also imported in all scripts
+
+- support for wxPython 4.1
+- so many more small fixes!
+
+PsychoPy 2020.1
+----------------
+
+For the new decade we have a new version system. The application is still called PsychoPy3 for now,
+but we're using `year.version.bugfix` from now on to mark versions.
+
+NEW FEATURES:
+
+- Many exciting tools for 3D rendering. See Coder demos menu for some examples
+- Online studies have better cross-browser compatibility including fixed support for edge
+- Auto-translate Code Components Py-?JS (syntax only)
+- Online studies have substantially improve timing. In fact, PsychoPy now has the
+  `best timing of any online system, consistently under 4ms precision for RTs! <https://psyarxiv.com/d6nu5/>`_
+- New Runner dialog:
+    - provides some 'Alerts' about things that might go wrong in their study #2646
+    - allows you to run/save/open a set of studies without opening a window for each one
+    - allows online studies to run locally in "debug" mode to test the study before uploading
+
+- Online studies now support shapes Cross, Star and regular polygons (nVertices) #2673
+- Support for pyglet 1.4, including support for **text alignment in multi-line text** #2693
+- CHANGED: rendering of text stimuli may not look quite the same. We now have new parameters
+  `anchorHoriz` and `TextAlign` rather than `alignHoriz` but this may not act the same in all
+  cases #2693
+- Online studies no longer require a separate `html` folder.  #2687 In some cases (e.g. when adding extra resource files)
+  it may be preferable to keep the html folder and that's currently still the default
+  for new studies but ExperimentSettings>online>folder can now be set to blank and the html/js
+  files will be saved alongside the psyexp/py files. This reduces file duplication.
+- Support for QUESTplus staircases
+- Pyglet backend now supports 10-bit framebuffer #2672
+- Updated support for Oculus Rift #2655
+- Added a :class:`~psychopy.visual.Pie` (pacman) stimulus #2652
+- Substantially faster rendering of DotStim #2647
+
+PsychoPy 2020.1.3
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Runner was not launching Coder scripts from their own directory #2819
+- csv files should allow separator to be `;` and decimal place to be `,` #2825 #2828
+- PsychoPy application was now launching in Windows versions <8.1 (which don't know about high-dpi displays) #2820
+
+PsychoPy 2020.1.2
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Keypad key responses were not showing up as numbered responses under the new Keyboard class #2812
+- Cedrus button box had an error int he Builder-output code added in 2020.1.1 #186ec587634
+- Code Component was accidentally *forcing* people to use code auto-conversion #5c57d0c9d
+
+PsychoPy 2020.1.1
+~~~~~~~~~~~~~~~~~~~~~~
+
+FIXED:
+
+- Several tweaks to the new Runner dialog:
+    - Double-click takes you back to the file in the appropriate Builder/Coder view
+    - Ctrl-R within the Runner run the file (so you can do Ctrl-R twice from builder and you're running)
+    - Alerts separated from stdout so they're more visible
+    - Alerts for Builder are checked on experiemnt selection rather than on script compile time
+    - Alert was testing stim size/pos incorrectly if using units "from experiment settings"
+
+- Mac keyboard access should now bring up a dialog taking you to the correct System Preferences panel
+- Fixes to Eyelink 1000 communications from iohub #1a8c6923b0
+- Better support for high-res displays on Windows #2795
+- Further tweak to readline issues on linux #6975040fae #4a80060b94
+
+PsychoPy 2020.1.0
+~~~~~~~~~~~~~~~~~~~~~~
+
+FIXED:
+
+- Rect stimulus now aliases size with width and height so that users can refer to either #2650
+- Faster updating of DotStim dot locations (so fewer dropped frames) #2647
+- `continueRoutine` can be set in the BeginRoutine block rather than the EachFrame block #2680
+- Tab key was incorrectly reporting itself as 'escape' in new Keyboard object #2620
+- many more!
+- Cedrus response box can be inserted into multiple routines without having to use a Code Component (no "Could not find a Cedrus device" error)
 
 
 PsychoPy 3.2
@@ -18,7 +249,10 @@ PsychoPy 3.2.4
 
 FIXED:
 
-- When Microsoft release 1903 fails to get/set gamma give more info and the option to skip gamma correction. See more info in `troubleshooting gamma ramp <https://www.psychopy.org/troubleshooting.html#errors-with-getting-setting-the-gamma-ramp>`_
+- Mitigated the gamma get/set fails caused by Microsoft Windows release 1903. PsychoPy
+    - now avoids using these calls unless gamma-setting is really needed
+    - gives more info about the cause. See more info in [troubleshooting gamma ramp](https://www.psychopy.org/troubleshooting.html#errors-with-getting-setting-the-gamma-ramp)
+    - provides an option to skip gamma-setting entirely
 - Slider wasn't allowing the units to be "from experiment settings" #23d80b49f
 - Setting the conditions rows from another conditions file was causing "Error path is on mount... start on mount..." #2e8cd2183
 - Mac 'tab' key was reporting itself as 'escape' with new Keyboard #95326cadd
@@ -175,7 +409,7 @@ PsychoPy 3.1.0
 NEW:
 
 - hardware.keyboard.Keyboard class, based on C code from the Psychtoolbox project (ported to Python by Mario Kleiner)
- - faster than `event.getKeys()` (polling is asynchronous with drawing loop and the calls go direct 
+ - faster than `event.getKeys()` (polling is asynchronous with drawing loop and the calls go direct
    to the USB rather than going via the operating system key calls)
  - supports keyDuration fields as well as `rt` for key down time
 - Form class for combining text items and responses (currently ratings and radio items) in a scrollable list
@@ -550,15 +784,15 @@ PsychoPy 1.85.2
 Released: June 2017
 
 FIXED:
-    * several errors with **PsychoJS** outputs from Builder (mostly thanks to Jon Roberts at Colorado):
-        * nReps and randomisation now being handled correctly by PsychoJS #ad9a931
-        * "correct" responses were being overwritten by non-responses #f903210
-        * Text components that were static caused a crash (were erroneously given two single-quotes) #b399a50
+* several errors with **PsychoJS** outputs from Builder (mostly thanks to Jon Roberts at Colorado):
+    * nReps and randomisation now being handled correctly by PsychoJS #ad9a931
+    * "correct" responses were being overwritten by non-responses #f903210
+    * Text components that were static caused a crash (were erroneously given two single-quotes) #b399a50
 
-    * Staircase would finish prematurely if nReversals was None #7148cad
-    * PsychoPy would crash if sound device contained a unicode character #c1ff68f
-    * FrameBufferObject not working correctly for dual-window setups #5e1c045
-    * removed some annoying junk messages about sounddevice #e5ae2fc
+* Staircase would finish prematurely if nReversals was None #7148cad
+* PsychoPy would crash if sound device contained a unicode character #c1ff68f
+* FrameBufferObject not working correctly for dual-window setups #5e1c045
+* removed some annoying junk messages about sounddevice #e5ae2fc
 
 PsychoPy 1.85.1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -566,22 +800,26 @@ PsychoPy 1.85.1
 Released: April 2017
 
 FIXED:
-    * several errors with **PsychoJS** outputs from Builder
-        * early termination of experiments #f1bd15047
-        * incorrect blank email field in info.php #d68c36bf9
-        * incorrect component name sin endRoutine #e47d90a36
-        * incorrect default units for image stims #8c32d1c9a
+- several errors with **PsychoJS** outputs from Builder:
+    - early termination of experiments #f1bd15047
+    - incorrect blank email field in info.php #d68c36bf9
+    - incorrect component name sin endRoutine #e47d90a36
+    - incorrect default units for image stims #8c32d1c9a
 
-    * several problems with **sound**
-        * pyo not loading #1365
-        * searching for 'auto' instead of 'default' device #d54d14fe
-        * fixed duration calculation (bug in soundfile) for sounddevice #e0e01ad
+- several problems with **sound**:
+    - pyo not loading #1365
+    - searching for 'auto' instead of 'default' device #d54d14fe
+    - fixed duration calculation (bug in soundfile) for sounddevice #e0e01ad
 
-    * textbox v textstim demo wasn't working #b2913c12476
-    * error with colors when using TextStim with blendmode='add'
-    * errors in installer package:
-        * windows installer could overwrite system path setting rather than append (NSIS short-string problem came back!)
-        * freetype 32 bit dll is being provided again (was in matplotlib before but disappeared?)
+- textbox v textstim demo wasn't working #b2913c12476
+
+- error with colors when using TextStim with blendmode='add'
+
+- errors in installer package:
+    - windows installer could overwrite system path setting
+      rather than append (NSIS short-string problem came back!)
+    - freetype 32 bit dll is being provided again (was in matplotlib
+      before but disappeared?)
 
 PsychoPy 1.85.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

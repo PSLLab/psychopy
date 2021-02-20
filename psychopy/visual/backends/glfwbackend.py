@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """A Backend class defines the core low-level functions required by a Window
@@ -124,6 +124,7 @@ class GLFWBackend(BaseBackend):
 
     """
     GL = pyglet.gl  # use Pyglet's OpenGL interface for now, should use PyOpenGL
+    winTypeName = 'glfw'
 
     def __init__(self, win, *args, **kwargs):
         """Set up the backend window according the params of the PsychoPy win
@@ -176,7 +177,12 @@ class GLFWBackend(BaseBackend):
                              "so setting to False has no effect.")
 
         # window framebuffer configuration
-        win.bpc = kwargs.get('bpc', (8, 8, 8))  # nearly all displays use 8 bpc
+        bpc = kwargs.get('bpc', (8, 8, 8))
+        if isinstance(bpc, int):
+            win.bpc = (bpc, bpc, bpc)
+        else:
+            win.bpc = bpc
+
         win.refreshHz = int(kwargs.get('refreshHz', 60))
         win.depthBits = int(kwargs.get('depthBits', 8))
         win.stencilBits = int(kwargs.get('stencilBits', 8))
@@ -214,18 +220,33 @@ class GLFWBackend(BaseBackend):
             logging.warning(
                 ("The specified video mode is not supported by this display, "
                  "using native mode ..."))
-            logging.warning(
-                ("Overriding user video settings: size {} -> {}, bpc {} -> "
-                 "{}, refreshHz {} -> {}".format(
-                    tuple(win.size),
-                    nativeVidmode[0],
-                    tuple(win.bpc),
-                    nativeVidmode[1],
-                    win.refreshHz,
-                    nativeVidmode[2])))
 
+            actualWidth, actualHeight = nativeVidmode.size
+            redBits, greenBits, blueBits = nativeVidmode.bits
             # change the window settings
-            win.size, win.bpc, win.refreshHz = nativeVidmode
+            if win._isFullScr:
+                logging.warning(
+                    ("Overriding user video settings: size {} -> {}, bpc {} -> "
+                     "{}, refreshHz {} -> {}".format(
+                        tuple(win.size),
+                        (actualWidth, actualHeight),
+                        tuple(win.bpc),
+                        (redBits, greenBits, blueBits),
+                        win.refreshHz,
+                        nativeVidmode.refresh_rate)))
+
+                win.clientSize = np.array((actualWidth, actualHeight), np.int)
+            else:
+                logging.warning(
+                    ("Overriding user video settings: bpc {} -> "
+                     "{}, refreshHz {} -> {}".format(
+                        tuple(win.bpc),
+                        (redBits, greenBits, blueBits),
+                        win.refreshHz,
+                        nativeVidmode.refresh_rate)))
+
+            win.bpc = (redBits, greenBits, blueBits)
+            win.refreshHz = nativeVidmode.refresh_rate
 
         if win._isFullScr:
             useDisplay = thisScreen

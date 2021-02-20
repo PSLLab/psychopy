@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -29,7 +29,7 @@ _localized = {'pumpIndex': _translate('Pump index'),
 
 class QmixPumpComponent(BaseComponent):
     """Operate a Cetoni neMESYS syringe pump"""
-    categories = ['Custom']
+    categories = ['I/O']
 
     def __init__(self, exp, parentName, name='pump',
                  startType='time (s)', startVal=0.0,
@@ -55,13 +55,6 @@ class QmixPumpComponent(BaseComponent):
 
         self.exp.requireImport(importName='qmix',
                                importFrom='psychopy.hardware')
-
-        code = ('# Initialize all pumps so they are ready to be used when we\n'
-                '# need them later. This enables us to dynamically select\n'
-                '# pumps during the experiment without worrying about their\n'
-                '# initialization.\n'
-                'qmix._init_all_pumps()')
-        self.exp.runOnce(code)
 
         # Order in which the user-settable parameters will be displayed
         # in the component's properties window.
@@ -114,6 +107,14 @@ class QmixPumpComponent(BaseComponent):
             allowedVals=[True, False],
             hint=_translate('Sync pump onset to the screen refresh'),
             label=_localized['syncToScreen'])
+
+    def writeRunOnceInitCode(self, buff):
+        code = ('# Initialize all pumps so they are ready to be used when we\n'
+                '# need them later. This enables us to dynamically select\n'
+                '# pumps during the experiment without worrying about their\n'
+                '# initialization.\n'
+                'qmix._init_all_pumps()\n')
+        buff.writeOnceIndentedLines(code)
 
     def writeRoutineStartCode(self, buff):
         """Write the code that will be called at the start of the routine.

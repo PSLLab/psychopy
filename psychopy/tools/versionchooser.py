@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 """PsychoPy Version Chooser to specify version within experiment scripts.
 """
@@ -244,8 +244,8 @@ def _versionFilter(versions, wxVersion):
 
     # Get Python 3 Compatibility
     if constants.PY3:
-        msg = _translate("Filtering versions of PsychoPy only compatible with Python 3.")
-        logging.info(msg)
+        # msg = _translate("Filtering versions of PsychoPy only compatible with Python 3.")
+        # logging.info(msg)
         versions = [ver for ver in versions
                     if ver == 'latest'
                     or parse_version(ver) >= parse_version('1.90')
@@ -254,10 +254,10 @@ def _versionFilter(versions, wxVersion):
     # Get WX Compatibility
     compatibleWX = '4.0'
     if wxVersion is not None and parse_version(wxVersion) >= parse_version(compatibleWX):
-        msg = _translate("wx version: {}. Filtering versions of "
-                         "PsychoPy only compatible with wx >= version {}".format(wxVersion,
-                                                                              compatibleWX))
-        logging.info(msg)
+        # msg = _translate("wx version: {}. Filtering versions of "
+        #                  "PsychoPy only compatible with wx >= version {}".format(wxVersion,
+        #                                                                       compatibleWX))
+        # logging.info(msg)
         return [ver for ver in versions
                 if ver == 'latest'
                 or parse_version(ver) > parse_version('1.85.04')

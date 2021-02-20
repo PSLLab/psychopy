@@ -9,8 +9,7 @@ from psychopy import prefs
 
 # the absolute path to the folder containing this path
 thisFolder = path.abspath(path.dirname(__file__))
-
-iconFile = path.join(prefs.paths['resources'], 'base.png')
+iconFile = path.join(thisFolder, 'unknown.png')
 tooltip = _translate('Unknown: A component that is not known by the current '
                      'installed version of PsychoPy\n(most likely from the '
                      'future)')
@@ -39,6 +38,7 @@ class UnknownComponent(BaseComponent):
                                     hint=_hint,
                                     label=_localized['name'])
         self.order = ['name']  # name first, then timing, then others
+        super(UnknownComponent, self).__init__(exp, parentName)
     # make sure nothing gets written into experiment for an unknown object
     # class!
 

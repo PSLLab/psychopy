@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Experiment classes:
@@ -116,10 +116,6 @@ class TrialHandler(object):
     def writeInitCodeJS(self, buff):
         pass
 
-    def writeResourcesCodeJS(self, buff):
-        buff.writeIndented("resourceManager.addResource({});\n"
-                           .format(self.params["conditionsFile"]))
-
     def writeLoopStartCode(self, buff):
         """Write the code to create and run a sequence of trials
         """
@@ -200,39 +196,42 @@ class TrialHandler(object):
                          ).format(self.params['conditionsFile'],
                                   self.params['Selected rows'])
 
-        code = ("\nfunction {funName}LoopBegin(thisScheduler) {{\n"
+        nReps = self.params['nReps'].val
+        if nReps in ['None', None, 'none', '']:
+            nReps = 'undefined'
+        elif isinstance(nReps, str):
+            nReps = nReps.strip("$")
+
+        code = ("\nfunction {loopName}LoopBegin({loopName}LoopScheduler) {{\n"
                 "  // set up handler to look after randomisation of conditions etc\n"
-                "  {name} = new TrialHandler({{\n"
+                "  {loopName} = new TrialHandler({{\n"
                 "    psychoJS: psychoJS,\n"
-                "    nReps: {params[nReps]}, method: TrialHandler.Method.{loopType},\n"
+                "    nReps: {nReps}, method: TrialHandler.Method.{loopType},\n"
                 "    extraInfo: expInfo, originPath: undefined,\n"
                 "    trialList: {trialList},\n"
-                "    seed: {seed}, name: '{name}'}});\n"
-                "  psychoJS.experiment.addLoop({name}); // add the loop to the experiment\n"
-                "  currentLoop = {name};  // we're now the current loop\n"
-                .format(funName=self.params['name'].val,
-                        name=self.params['name'],
+                "    seed: {seed}, name: '{loopName}'\n"
+                "  }});\n"
+                "  psychoJS.experiment.addLoop({loopName}); // add the loop to the experiment\n"
+                "  currentLoop = {loopName};  // we're now the current loop\n"
+                .format(loopName=self.params['name'],
                         loopType=(self.params['loopType'].val).upper(),
-                        params=self.params,
-                        thisName=self.thisName,
+                        nReps=nReps,
                         trialList=trialList,
                         seed=seed))
         buff.writeIndentedLines(code)
+        
         # for the scheduler
         if modular:
             code = ("\n  // Schedule all the trials in the trialList:\n"
-                    "  for (const {thisName} of {name}) {{\n"
-                    "    thisScheduler.add(importConditions({name}));\n")
+                    "  for (const {thisName} of {loopName}) {{\n"
+                    "    const snapshot = {loopName}.getSnapshot();\n"
+                    "    {loopName}LoopScheduler.add(importConditions(snapshot));\n")
         else:
             code = ("\n  // Schedule all the trials in the trialList:\n"
-                    "  trialIterator = {name}[Symbol.iterator]();\n"
-                    "  while(true) {{\n"
-                    "    let result = trialIterator.next();\n"
-                    "    if (result.done);\n"
-                    "      break;\n"
-                    "    let {thisName} = result.value;\n"
-                    "    thisScheduler.add(importConditions({name}));\n")
-        buff.writeIndentedLines(code.format(name=self.params['name'],
+                    "  {loopName}.forEach(function() {{\n"
+                    "    const snapshot = {loopName}.getSnapshot();\n\n"
+                    "    {loopName}LoopScheduler.add(importConditions(snapshot));\n")
+        buff.writeIndentedLines(code.format(loopName=self.params['name'],
                                             thisName=self.thisName))
         # then we need to include begin, eachFrame and end code for each entry within that loop
         loopDict = self.exp.flow.loopDict
@@ -240,28 +239,29 @@ class TrialHandler(object):
         code = ""
         for thisChild in thisLoop:
             if thisChild.getType() == 'Routine':
-                thisType = 'Routine'
                 code += (
-                    "    thisScheduler.add({name}RoutineBegin);\n"
-                    "    thisScheduler.add({name}RoutineEachFrame);\n"
-                    "    thisScheduler.add({name}RoutineEnd);\n"
-                    .format(params=self.params, name=thisChild.params['name'])
+                    "    {loopName}LoopScheduler.add({childName}RoutineBegin(snapshot));\n"
+                    "    {loopName}LoopScheduler.add({childName}RoutineEachFrame(snapshot));\n"
+                    "    {loopName}LoopScheduler.add({childName}RoutineEnd(snapshot));\n"
+                    .format(childName=thisChild.params['name'],
+                            loopName=self.params['name'])
                     )
             else:  # for a LoopInitiator
                 code += (
-                    "    const {name}LoopScheduler = new Scheduler(psychoJS);\n"
-                    "    thisScheduler.add({name}LoopBegin, {name}LoopScheduler);\n"
-                    "    thisScheduler.add({name}LoopScheduler);\n"
-                    "    thisScheduler.add({name}LoopEnd);\n"
-                    .format(params=self.params, name=thisChild.params['name'].val)
+                    "    const {childName}LoopScheduler = new Scheduler(psychoJS);\n"
+                    "    {loopName}LoopScheduler.add({childName}LoopBegin, {childName}LoopScheduler);\n"
+                    "    {loopName}LoopScheduler.add({childName}LoopScheduler);\n"
+                    "    {loopName}LoopScheduler.add({childName}LoopEnd);\n"
+                    .format(childName=thisChild.params['name'],
+                            loopName=self.params['name'])
                     )
 
-        code += ("    thisScheduler.add(endLoopIteration({{thisScheduler, isTrials : {isTrials}}}));\n"
-                 "  }}\n"
-                 "\n"
+        code += "    {loopName}LoopScheduler.add(endLoopIteration({loopName}LoopScheduler, snapshot));\n"
+        code += "  }}%s\n" % ([');', ''][modular])
+        code += ("\n"
                  "  return Scheduler.Event.NEXT;\n"
-                 "}}\n").format(isTrials=str(self.params['isTrials'].val).lower())
-        buff.writeIndentedLines(code)
+                 "}}\n")
+        buff.writeIndentedLines(code.format(loopName=self.params['name']))
 
     def writeLoopEndCode(self, buff):
         # Just within the loop advance data line if loop is whole trials
@@ -405,9 +405,6 @@ class StairHandler(object):
         # not needed - initialise the staircase only when needed
         pass
 
-    def writeResourcesCodeJS(self, buff):
-        pass  # no resources needed for staircase
-
     def writeLoopStartCode(self, buff):
         # create the staircase
         # also a 'thisName' for use in "for thisTrial in trials:"
@@ -528,10 +525,6 @@ class MultiStairHandler(object):
                             "a trial. It alters how data files are output"))
         pass  # don't initialise at start of exp, create when needed
 
-    def writeResourcesCodeJS(self, buff):
-        buff.writeIndented("resourceManager.addResource({});"
-                           .format(self.params["conditionsFile"]))
-
     def writeLoopStartCode(self, buff):
         # create a 'thisName' for use in "for thisTrial in trials:"
         makeLoopIndex = self.exp.namespace.makeLoopIndex
@@ -543,6 +536,7 @@ class MultiStairHandler(object):
                 "name='%(name)s',\n"
                 "    nTrials=%(nReps)s,\n"
                 "    conditions=conditions,\n"
+                "    method=%(switchMethod)s,\n"
                 "    originPath=-1)\n"
                 "thisExp.addLoop(%(name)s)  # add the loop to the experiment\n"
                 "# initialise values for first condition\n"
@@ -600,9 +594,6 @@ class LoopInitiator(object):
 
     def getType(self):
         return 'LoopInitiator'
-
-    def writeResourcesCodeJS(self, buff):
-        self.loop.writeResourcesCodeJS(buff)
 
     def writeInitCode(self, buff):
         self.loop.writeInitCode(buff)

@@ -3,7 +3,7 @@
 
 """
 Part of the PsychoPy library
-Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 Distributed under the terms of the GNU General Public License (GPL).
 """
 
@@ -114,7 +114,7 @@ class SoundComponent(BaseComponent):
             inits['stopVal'].val = -1
         elif float(inits['stopVal'].val) > 2:
             inits['stopVal'].val = -1
-        buff.writeIndented("%s = new Sound({\n"
+        buff.writeIndented("%s = new sound.Sound({\n"
                            "    win: psychoJS.window,\n"
                            "    value: %s,\n"
                            "    secs: %s,\n"
@@ -129,7 +129,7 @@ class SoundComponent(BaseComponent):
             stopVal = -1
 
         if self.params['sound'].updates == 'set every repeat':
-            buff.writeIndented("%s = new Sound({\n"
+            buff.writeIndented("%s = new sound.Sound({\n"
                                "    win: psychoJS.window,\n"
                                "    value: %s,\n"
                                "    secs: %s,\n"

@@ -12,10 +12,10 @@ For the easiest installation download and install the Standalone package.
 
    <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@0/dist/ua-parser.min.js"></script>
    <script>
-    
+
     let filename;
     let url;
-    let version='3.2.3'
+    let version='2020.2.10'
 
     let clientInfo = UAParser(navigator.userAgent);
     var osLabel;
@@ -33,8 +33,8 @@ For the easiest installation download and install the Standalone package.
     }
     else if (navigator.platform == 'MacIntel') {
       osLabel = clientInfo.os.name+" "+clientInfo.os.version;
-      filename = '  Standalone PsychoPy '+version+' for MacOS';
-      url = 'https://github.com/psychopy/psychopy/releases/download/'+version+'/StandalonePsychoPy3-'+version+'-MacOS.dmg';
+      filename = '  Standalone PsychoPy '+version+' for macOS';
+      url = 'https://github.com/psychopy/psychopy/releases/download/'+version+'/StandalonePsychoPy-'+version+'-macOS.dmg';
     }
     else {
       osLabel = clientInfo.os.name+" ("+clientInfo.cpu.architecture+")";
@@ -50,6 +50,8 @@ For the easiest installation download and install the Standalone package.
 
 **For all versions** see the `PsychoPy releases on github <https://github.com/psychopy/psychopy/releases>`_
 
+PsychoPy is distributed under the `GPL3 license <https://github.com/psychopy/psychopy/blob/master/LICENSE>`_
+
 .. _manual_install:
 
 Manual installations
@@ -58,6 +60,7 @@ Manual installations
 See below for options if you don't want to use the Standalone releases:
 
 * :ref:`pip_install`
+* :ref:`brew_install`
 * :ref:`linux_install`
 * :ref:`conda`
 * :ref:`developers_install`
@@ -67,7 +70,7 @@ See below for options if you don't want to use the Standalone releases:
 pip install
 ~~~~~~~~~~~~~~~~~
 
-Now that most python libraries can be install using `pip` it's relatively easy
+Now that most python libraries can be installed using `pip` it's relatively easy
 to manually install PsychoPy and all it's dependencies to your own installation
 of Python.
 
@@ -84,6 +87,15 @@ If you prefer *not* to install *all* the dependencies then you could do::
   pip install psychopy --no-deps
 
 and then install them manually.
+
+.. _brew_install:
+
+brew install
+~~~~~~~~~~~~~~~~~
+
+On a MacOS machine, `brew` can be used to install PsychoPy::
+
+  brew cask install psychopy
 
 .. _linux_install:
 
@@ -114,8 +126,8 @@ find and install the correct wheel for your particular flavor of linux.
 **Building Python PsychToolbox bindings:**
 
 The PsychToolbox bindings for Python provide superior timing for sounds and
-keyboard responses. Unfortunately we haven't bee able to build universal wheels
-for these yet so you may have to build the pkg yourself. That should be hard.
+keyboard responses. Unfortunately we haven't been able to build universal wheels
+for these yet so you may have to build the pkg yourself. That should not be hard.
 You need the necessary dev libraries installed first:
 
 .. code-block:: bash
@@ -131,16 +143,22 @@ as needed:
 .. _conda:
 
 Anaconda and Miniconda
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
-With Python 3.6::
+We provide an `environment file <https://raw.githubusercontent.com/psychopy/psychopy/master/conda/psychopy-env.yml>`_
+that can be used to install PsychoPy and its dependencies. Download the file,
+open your terminal, navigate to the directory you saved the file to, and run::
 
-  conda create -n psypy3 python=3.6
-  conda activate psypy3
-  conda install numpy scipy matplotlib pandas pyopengl pillow lxml openpyxl xlrd configobj pyyaml gevent greenlet msgpack-python psutil pytables requests[security] cffi seaborn wxpython cython pyzmq pyserial
-  conda install -c conda-forge pyglet pysoundfile python-bidi moviepy pyosf
-  pip install zmq json-tricks pyparallel sounddevice pygame pysoundcard psychopy_ext psychopy
+  conda env create -n psychopy -f psychopy-env.yml
 
+This will create an environment named ``psychopy``. On Linux, the ``wxPython`` dependency of PsychoPy is linked
+against ``webkitgtk``, which needs to be installed manually, e.g. via ``sudo apt install libwebkitgtk-1.0`` on Debian-based
+systems linke Ubuntu.
+
+To activate the newly-created environment and run PsychoPy, exceute::
+
+  conda activate psychopy
+  psychopy
 
 .. _developers_install:
 

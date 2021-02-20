@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
@@ -37,9 +37,10 @@ def sendUsageStats(app=None):
         OSXver, junk, architecture = platform.mac_ver()
         systemInfo = "OSX_%s" % (OSXver)
     elif sys.platform.startswith('linux'):
+        from distro import linux_distribution
         systemInfo = '%s_%s_%s' % (
             'Linux',
-            ':'.join([x for x in platform.dist() if x != '']),
+            ':'.join([x for x in linux_distribution() if x != '']),
             platform.release())
         if len(systemInfo) > 30:  # if it's too long PHP/SQL fails to store!?
             systemInfo = systemInfo[0:30]

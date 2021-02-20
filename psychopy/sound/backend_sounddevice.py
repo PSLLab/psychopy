@@ -11,10 +11,10 @@ import time
 import re
 import atexit
 
-# try:
-#     import readline  # Work around GH-2230
-# except ImportError:
-#     pass  # all that will happen is the stderr/stdout might get redirected
+try:
+    import readline  # Work around GH-2230
+except ImportError:
+    pass  # all that will happen is the stderr/stdout might get redirected
 
 from psychopy import logging, exceptions
 from psychopy.constants import (PLAYING, PAUSED, FINISHED, STOPPED,

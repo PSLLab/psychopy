@@ -3,19 +3,23 @@
 
 """
 Part of the PsychoPy library
-Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 Distributed under the terms of the GNU General Public License (GPL).
 """
 
 from __future__ import absolute_import, print_function
 
-from builtins import str, object
+from builtins import str, object, super
 from past.builtins import basestring
 
-from psychopy import logging
+from psychopy import prefs
 from psychopy.constants import FOREVER
 from ..params import Param
 from psychopy.experiment.utils import CodeGenerationException
+from psychopy.experiment.utils import unescapedDollarSign_re
+from psychopy.experiment.params import getCodeFromParamStr
+from psychopy.alerts import alerttools
+
 from psychopy.localization import _translate, _localized
 
 
@@ -43,7 +47,7 @@ class BaseComponent(object):
          "condition": "=='n vertices",
          "param": "n vertices",
          "true": "enable",  # what to do with param if condition is True
-         "false": "disable",  # permited: hide, show, enable, disable
+         "false": "disable",  # permitted: hide, show, enable, disable
          }"""
 
         msg = _translate(
@@ -114,6 +118,56 @@ class BaseComponent(object):
             label=_translate('Disable component'))
 
         self.order = ['name']  # name first, then timing, then others
+
+    def integrityCheck(self):
+        """
+        Run component integrity checks for non-visual components
+        """
+        alerttools.testDisabled(self)
+        alerttools.testStartEndTiming(self)
+
+    def _dubiousConstantUpdates(self):
+        """Return a list of fields in component that are set to be constant
+        but seem intended to be dynamic. Some code fields are constant, and
+        some denoted as code by $ are constant.
+        """
+        warnings = []
+        # treat expInfo as likely to be constant; also treat its keys as
+        # constant because its handy to make a short-cut in code:
+        # exec(key+'=expInfo[key]')
+        expInfo = self.exp.settings.getInfo()
+        keywords = self.exp.namespace.nonUserBuilder[:]
+        keywords.extend(['expInfo'] + list(expInfo.keys()))
+        reserved = set(keywords).difference({'random', 'rand'})
+        for key in self.params:
+            field = self.params[key]
+            if (not hasattr(field, 'val') or
+                    not isinstance(field.val, basestring)):
+                continue  # continue == no problem, no warning
+            if not (field.allowedUpdates and
+                    isinstance(field.allowedUpdates, list) and
+                    len(field.allowedUpdates) and
+                    field.updates == 'constant'):
+                continue
+            # now have only non-empty, possibly-code, and 'constant' updating
+            if field.valType == 'str':
+                if not bool(unescapedDollarSign_re.search(field.val)):
+                    continue
+                code = getCodeFromParamStr(field.val)
+            elif field.valType == 'code':
+                code = field.val
+            else:
+                continue
+            # get var names in the code; no names == constant
+            try:
+                names = compile(code, '', 'eval').co_names
+            except SyntaxError:
+                continue
+            # ignore reserved words:
+            if not set(names).difference(reserved):
+                continue
+            warnings.append((field, key))
+        return warnings or [(None, None)]
 
     def writeInitCode(self, buff):
         """Write any code that a component needs that should only ever be done
@@ -250,7 +304,7 @@ class BaseComponent(object):
         buff.setIndentLevel(+1, relative=True)
         code = ("// keep track of start time/frame for later\n"
                 "%(name)s.tStart = t;  // (not accounting for frame time here)\n"
-                "%(name)s.frameNStart = frameN;  // exact frame index\n")
+                "%(name)s.frameNStart = frameN;  // exact frame index\n\n")
         buff.writeIndentedLines(code % self.params)
 
     def writeStopTestCode(self, buff):
@@ -303,20 +357,20 @@ class BaseComponent(object):
             code = ("frameRemains = %(startVal)s + %(stopVal)s"
                     " - psychoJS.window.monitorFramePeriod * 0.75;"
                     "  // most of one frame period left\n"
-                    "if (%(name)s.status === PsychoJS.Status.STARTED "
+                    "if ((%(name)s.status === PsychoJS.Status.STARTED || %(name)s.status === PsychoJS.Status.FINISHED) "
                     "&& t >= frameRemains) {\n")
         # start at frame and end with duratio (need to use approximate)
         elif self.params['stopType'].val == 'duration (s)':
-            code = ("if (%(name)s.status === PsychoJS.Status.STARTED "
+            code = ("if ((%(name)s.status === PsychoJS.Status.STARTED || %(name)s.status === PsychoJS.Status.FINISHED) "
                     "&& t >= (%(name)s.tStart + %(stopVal)s)) {\n")
         elif self.params['stopType'].val == 'duration (frames)':
-            code = ("if (%(name)s.status === PsychoJS.Status.STARTED "
+            code = ("if ((%(name)s.status === PsychoJS.Status.STARTED || %(name)s.status === PsychoJS.Status.FINISHED) "
                     "&& frameN >= (%(name)s.frameNStart + %(stopVal)s)) {\n")
         elif self.params['stopType'].val == 'frame N':
-            code = ("if (%(name)s.status === PsychoJS.Status.STARTED "
+            code = ("if ((%(name)s.status === PsychoJS.Status.STARTED || %(name)s.status === PsychoJS.Status.FINISHED) "
                     "&& frameN >= %(stopVal)s) {\n")
         elif self.params['stopType'].val == 'condition':
-            code = ("if (%(name)s.status === PsychoJS.Status.STARTED "
+            code = ("if ((%(name)s.status === PsychoJS.Status.STARTED || %(name)s.status === PsychoJS.Status.FINISHED) "
                     "&& Boolean(%(stopVal)s)) {\n")
         else:
             msg = ("Didn't write any stop line for startType="
@@ -377,8 +431,14 @@ class BaseComponent(object):
         # code conversions for PsychoJS
         if target == 'PsychoJS':
             endStr = ';'
+            try:
+                valStr = str(val).strip()
+            except TypeError:
+                if isinstance(val, Param):
+                    val = val.val
+                raise TypeError(f"Value of parameter {paramName} of component {compName} "
+                                f"could not be converted to JS. Value is {val}")
             # convert (0,0.5) to [0,0.5] but don't convert "rand()" to "rand[]"
-            valStr = str(val).strip()
             if valStr.startswith("(") and valStr.endswith(")"):
                 valStr = valStr.replace("(", "[", 1)
                 valStr = valStr[::-1].replace(")", "]", 1)[
@@ -393,6 +453,8 @@ class BaseComponent(object):
         # then write the line
         if updateType == 'set every frame' and target == 'PsychoPy':
             loggingStr = ', log=False'
+        if updateType == 'set every frame' and target == 'PsychoJS':
+            loggingStr = ', false'  # don't give the keyword 'log' in JS
         else:
             loggingStr = ''
 
@@ -597,6 +659,32 @@ class BaseVisualComponent(BaseComponent):
             label=_localized['ori'])
 
         self.params['syncScreenRefresh'].readOnly = True
+
+    def integrityCheck(self):
+        """
+        Run component integrity checks.
+        """
+        super().integrityCheck()  # run parent class checks first
+
+        win = alerttools.TestWin(self.exp)
+
+        # get units for this stimulus
+        if 'units' in self.params:  # e.g. BrushComponent doesn't have this
+            units = self.params['units'].val
+        else:
+            units = None
+        if units == 'use experiment settings':
+            units = self.exp.settings.params[
+                'Units'].val  # this 1 uppercase
+        if not units or units == 'use preferences':
+            units = prefs.general['units']
+
+        # tests for visual stimuli
+        alerttools.testSize(self, win, units)
+        alerttools.testPos(self, win, units)
+        alerttools.testAchievableVisualOnsetOffset(self)
+        alerttools.testValidVisualStimTiming(self)
+        alerttools.testFramesAsInt(self)
 
     def writeFrameCode(self, buff):
         """Write the code that will be called every frame

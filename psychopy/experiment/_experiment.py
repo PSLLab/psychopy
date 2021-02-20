@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Experiment classes:
@@ -25,6 +25,7 @@ import codecs
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
 from copy import deepcopy
+from pathlib import Path
 
 import psychopy
 from psychopy import data, __version__, logging
@@ -84,7 +85,6 @@ class Experiment(object):
         self.requirePsychopyLibs(libs=libs)
         self.requireImport(importName='keyboard',
                            importFrom='psychopy.hardware')
-        self._runOnce = []
 
         _settingsComp = getComponents(fetchIcons=False)['SettingsComponent']
         self.settings = _settingsComp(parentName='', exp=self)
@@ -134,29 +134,6 @@ class Experiment(object):
         if import_ not in self.requiredImports:
             self.requiredImports.append(import_)
 
-    def runOnce(self, code):
-        """Add code to the experiment that is only run exactly once, after
-        all `import`s were done.
-
-        Parameters
-        ----------
-        code : str
-            The code to run. May include newline characters to write several
-            lines of code at once.
-
-        Notes
-        -----
-        For running an `import`, use meth:~`Experiment.requireImport` or
-        :meth:~`Experiment.requirePsychopyLibs` instead.
-
-        See also
-        --------
-        :meth:~`Experiment.requireImport`,
-        :meth:~`Experiment.requirePsychopyLibs`
-        """
-        if code not in self._runOnce:
-            self._runOnce.append(code)
-
     def addRoutine(self, routineName, routine=None):
         """Add a Routine to the current list of them.
 
@@ -168,14 +145,22 @@ class Experiment(object):
             self.routines[routineName] = Routine(routineName, exp=self)
         else:
             self.routines[routineName] = routine
+        return self.routines[routineName]
+
+    def integrityCheck(self):
+        """Check the integrity of the Experiment"""
+        # add some checks for things outside the Flow?
+        # then check the contents 1-by-1 from the Flow
+        self.flow.integrityCheck()
 
     def writeScript(self, expPath=None, target="PsychoPy", modular=True):
         """Write a PsychoPy script for the experiment
         """
+        # self.integrityCheck()
+
         self.psychopyVersion = psychopy.__version__  # make sure is current
         # set this so that params write for approp target
         utils.scriptTarget = target
-        self.flow._prescreenValues()
         self.expPath = expPath
         script = IndentingBuffer(u'')  # a string buffer object
 
@@ -199,6 +184,17 @@ class Experiment(object):
         if target == "PsychoPy":
             self_copy.settings.writeInitCode(script, self_copy.psychopyVersion,
                                              localDateTime)
+
+            # Write "run once" code sections
+            for entry in self_copy.flow:
+                # NB each entry is a routine or LoopInitiator/Terminator
+                self_copy._currentRoutine = entry
+                if hasattr(entry, 'writeRunOnceInitCode'):
+                    entry.writeRunOnceInitCode(script)
+                if hasattr(entry, 'writePreCode'):
+                    entry.writePreCode(script)
+            script.write("\n\n")
+
             # present info, make logfile
             self_copy.settings.writeStartCode(script, self_copy.psychopyVersion)
             # writes any components with a writeStartCode()
@@ -212,8 +208,18 @@ class Experiment(object):
             script = script.getvalue()
         elif target == "PsychoJS":
             script.oneIndent = "  "  # use 2 spaces rather than python 4
+
+
             self_copy.settings.writeInitCodeJS(script,self_copy.psychopyVersion,
                                                localDateTime, modular)
+
+            script.writeIndentedLines("// Start code blocks for 'Before Experiment'")
+            for entry in self_copy.flow:
+                # NB each entry is a routine or LoopInitiator/Terminator
+                self_copy._currentRoutine = entry
+                if hasattr(entry, 'writePreCodeJS'):
+                    entry.writePreCodeJS(script)
+
             self_copy.flow.writeFlowSchedulerJS(script)
             self_copy.settings.writeExpSetupCodeJS(script,
                                                    self_copy.psychopyVersion)
@@ -481,6 +487,24 @@ class Experiment(object):
                 # lowAnchorText highAnchorText will trigger obsolete error
                 # when run the script
                 params[name].val = v
+            elif name == 'storeResponseTime':
+                return  # deprecated in v1.70.00 because it was redundant
+            elif name == 'Resources':
+                # if the xml import hasn't automatically converted from string?
+                if type(val) == str:
+                    resources = data.utils.listFromString(val)
+                if self.psychopyVersion == '2020.2.5':
+                    # in 2020.2.5 only, problems were:
+                    #   a) resources list was saved as a string and
+                    #   b) with wrong root folder
+                    resList = []
+                    for resourcePath in resources:
+                        # doing this the blunt way but should we check for existence?
+                        resourcePath = resourcePath.replace("../", "")  # it was created using wrong root
+                        resourcePath = resourcePath.replace("\\", "/")  # created using windows \\
+                        resList.append(resourcePath)
+                    resources = resList  # push our new list back to resources
+                params[name].val = resources
             else:
                 if name in params:
                     params[name].val = val
@@ -496,14 +520,17 @@ class Experiment(object):
                     if params[name].allowedTypes is None:
                         params[name].allowedTypes = []
                     params[name].readOnly = True
-                    msg = _translate(
-                        "Parameter %r is not known to this version of "
-                        "PsychoPy but has come from your experiment file "
-                        "(saved by a future version of PsychoPy?). This "
-                        "experiment may not run correctly in the current "
-                        "version.")
-                    logging.warn(msg % name)
-                    logging.flush()
+                    if name not in ['JS libs', 'OSF Project ID']:
+                        # don't warn people if we know it's OK (e.g. for params
+                        # that have been removed
+                        msg = _translate(
+                            "Parameter %r is not known to this version of "
+                            "PsychoPy but has come from your experiment file "
+                            "(saved by a future version of PsychoPy?). This "
+                            "experiment may not run correctly in the current "
+                            "version.")
+                        logging.warn(msg % name)
+                        logging.flush()
 
         # get the value type and update rate
         if 'valType' in list(paramNode.keys()):
@@ -527,9 +554,11 @@ class Experiment(object):
         self._doc.parse(filename)
         root = self._doc.getroot()
 
+
         # some error checking on the version (and report that this isn't valid
         # .psyexp)?
         filenameBase = os.path.basename(filename)
+
         if root.tag != "PsychoPy2experiment":
             logging.error('%s is not a valid .psyexp file, "%s"' %
                           (filenameBase, root.tag))
@@ -704,6 +733,10 @@ class Experiment(object):
     def getExpName(self):
         return self.settings.params['expName'].val
 
+    @property
+    def htmlFolder(self):
+        return self.settings.params['HTML path'].val
+
     def getComponentFromName(self, name):
         """Searches all the Routines in the Experiment for a matching Comp name
 
@@ -744,6 +777,11 @@ class Experiment(object):
             :return: dict of 'asb' and 'rel' paths or None
             """
             thisFile = {}
+            # NB: Pathlib might be neater here but need to be careful
+            # e.g. on mac:
+            #    Path('C:/test/test.xlsx').is_absolute() returns False
+            #    Path('/folder/file.xlsx').relative_to('/Applications') gives error
+            #    but os.path.relpath('/folder/file.xlsx', '/Applications') correctly uses ../
             if len(filePath) > 2 and (filePath[0] == "/" or filePath[1] == ":")\
                     and os.path.isfile(filePath):
                 thisFile['abs'] = filePath
@@ -769,43 +807,44 @@ class Experiment(object):
                     filePath = filePath.strip('$')
                     filePath = eval(filePath)
                 except NameError:
-                    # List files in director and get condition files
+                    # List files in directory and get condition files
                     if 'xlsx' in filePath or 'xls' in filePath or 'csv' in filePath:
                         # Get all xlsx and csv files
-                        expPath = self.expPath
-                        if 'html' in self.expPath:  # Get resources from parent directory i.e, original exp path
-                            expPath = self.expPath.split('html')[0]
-                        fileList = (
-                        [getPaths(condFile) for condFile in os.listdir(expPath)
-                         if len(condFile.split('.')) > 1
-                         and condFile.split('.')[1] in ['xlsx', 'xls', 'csv']])
-                        return fileList
+                        expFolder = Path(self.filename).parent
+                        spreadsheets = []
+                        for pattern in ['*.xlsx', '*.xls', '*.csv', '*.tsv']:
+                            # NB potentially make this search recursive with
+                            # '**/*.xlsx' but then need to exclude 'data/*.xlsx'
+                            spreadsheets.extend(expFolder.glob(pattern))
+                        files = []
+                        for condFile in spreadsheets:
+                            # call the function recursively for each excel file
+                            files.extend(findPathsInFile(str(condFile)))
+                        return files
+
             paths = []
+            # is it a file?
+            thisFile = getPaths(filePath)  # get the abs/rel paths
+            # does it exist?
+            if not thisFile:
+                return paths
+            # OK, this file itself is valid so add to resources
+            if thisFile not in paths:
+                paths.append(thisFile)
             # does it look at all like an excel file?
             if (not isinstance(filePath, basestring)
                     or not os.path.splitext(filePath)[1] in ['.csv', '.xlsx',
                                                              '.xls']):
                 return paths
-            thisFile = getPaths(filePath)
-            # does it exist?
-            if not thisFile:
-                return paths
-            # this file itself is valid so add to resources if not already
-            if thisFile not in paths:
-                paths.append(thisFile)
             conds = data.importConditions(thisFile['abs'])  # load the abs path
             for thisCond in conds:  # thisCond is a dict
                 for param, val in list(thisCond.items()):
                     if isinstance(val, basestring) and len(val):
-                        subFile = getPaths(val)
-                    else:
-                        subFile = None
-                    if subFile:
-                        paths.append(subFile)
-                        # if it's a possible conditions file then recursive
-                        if thisFile['abs'][-4:] in ["xlsx", ".xls", ".csv"]:
-                            contained = findPathsInFile(subFile['abs'])
-                            paths.extend(contained)
+                        # only add unique entries (can't use set() on a dict)
+                        for thisFile in findPathsInFile(val):
+                            if thisFile not in paths:
+                                paths.append(thisFile)
+
             return paths
 
         resources = []
@@ -826,9 +865,22 @@ class Experiment(object):
                             thisFile = getPaths(thisParam)
                         elif isinstance(thisParam.val, basestring):
                             thisFile = getPaths(thisParam.val)
-                        # then check if it's a valid path
-                        if thisFile:
+                        # then check if it's a valid path and not yet included
+                        if thisFile and thisFile not in resources:
                             resources.append(thisFile)
+
+        # Add files from additional resources box
+        val = self.settings.params['Resources'].val
+        for thisEntry in val:
+            thisFile = getPaths(thisEntry)
+            if thisFile:
+                resources.append(thisFile)
+        # Check for any resources not in experiment path
+        for res in resources:
+            if srcRoot not in res['abs']:
+                psychopy.logging.warning("{} is not in the experiment path and "
+                                         "so will not be copied to Pavlovia"
+                                         .format(res['rel']))
 
         return resources
 

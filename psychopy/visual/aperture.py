@@ -5,7 +5,7 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -191,7 +191,7 @@ class Aperture(MinimalStim, ContainerMixin):
         :ref:`Operations <attrib-operations>` supported here as
         well as ShapeStim.
 
-        Use setSize() if you want to control 0logging and resetting.
+        Use setSize() if you want to control logging and resetting.
         """
         self.__dict__['size'] = size
         self._shape.size = size  # _shape is a ShapeStim

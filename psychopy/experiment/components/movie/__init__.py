@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
 
 from os import path
+import copy
 from psychopy import logging
 from psychopy.experiment.components import BaseVisualComponent, getInitVals, Param, _translate
 
@@ -150,27 +151,23 @@ class MovieComponent(BaseVisualComponent):
         if useInits:
             inits = getInitVals(self.params)
         else:
-            inits = self.params
-
-        if self.params['units'].val == 'from exp settings':
-            unitsStr = ""
-        else:
-            unitsStr = "units=%(units)s, " % self.params
+            inits = copy.deepcopy(self.params)
 
         noAudio = '{}'.format(inits['No audio'].val).lower()
         loop = '{}'.format(inits['loop'].val).lower()
 
-        if useInits:
-            for param in inits:
-                if inits[param] in ['', None, 'None', 'none']:
-                    inits[param] = 'undefined'
+        for param in inits:
+            if inits[param] in ['', None, 'None', 'none', 'from exp settings']:
+                inits[param].val = 'undefined'
+                inits[param].valType = 'code'
 
         code = "{name}Clock = new util.Clock();\n".format(**inits)
         buff.writeIndented(code)
 
         code = ("{name} = new visual.MovieStim({{\n"
                 "  win: psychoJS.window,\n"
-                "  name: '{name}', {units}\n"
+                "  name: '{name}',\n"
+                "  units: {units},\n"
                 "  movie: {movie},\n"
                 "  pos: {pos},\n"
                 "  size: {size},\n"
@@ -180,7 +177,7 @@ class MovieComponent(BaseVisualComponent):
                 "  noAudio: {noAudio},\n"
                 "  }});\n").format(name=inits['name'],
                                    movie=inits['movie'],
-                                   units=unitsStr,
+                                   units=inits['units'],
                                    pos=inits['pos'],
                                    size=inits['size'],
                                    ori=inits['ori'],
@@ -261,6 +258,7 @@ class MovieComponent(BaseVisualComponent):
         self.writeStartTestCodeJS(buff)
 
         buff.writeIndentedLines("{name}.setAutoDraw(true);\n".format(**self.params))
+        buff.writeIndentedLines("{name}.play();\n".format(**self.params))
         # because of the 'if' statement of the time test
         buff.setIndentLevel(-1, relative=True)
         buff.writeIndented("}\n\n")
@@ -288,3 +286,11 @@ class MovieComponent(BaseVisualComponent):
                     "    continueRoutine = false;\n"
                     "}}\n".format(**self.params))
             buff.writeIndentedLines(code)
+
+    def writeRoutineEndCode(self, buff):
+        # always stop at the end of the routine. (should this be a param?)
+        buff.writeIndentedLines("{name}.stop()\n".format(**self.params))
+
+    def writeRoutineEndCodeJS(self, buff):
+        # always stop at the end of the routine. (should this be a param?)
+        buff.writeIndentedLines("{name}.stop();\n".format(**self.params))

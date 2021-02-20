@@ -5,13 +5,14 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
 
 from builtins import object
 from past.builtins import basestring
+from pathlib import Path
 
 # Ensure setting pyglet.options['debug_gl'] to False is done prior to any
 # other calls to pyglet or pyglet submodules, otherwise it may not get picked
@@ -169,6 +170,10 @@ class MinimalStim(object):
             # remove from autodraw lists
             toDrawDepths.pop(toDraw.index(self))  # remove from depths
             toDraw.remove(self)  # remove from draw list
+            # Remove from editable list (if present)
+            for c in self.win._editableChildren:
+                if c() == self:
+                    self.win._editableChildren.remove(c)
             self.status = STOPPED
 
     def setAutoDraw(self, value, log=None):
@@ -299,19 +304,21 @@ class ColorMixin(object):
         respect to the stimulus' current colorSpace. If color is given as a
         single value (scalar) then this will be applied to all 3 channels.
 
-        Examples::
-                # ... for whatever stim you have:
-                stim.color = 'white'
-                stim.color = 'RoyalBlue'  # (the case is actually ignored)
-                stim.color = '#DDA0DD'  # DDA0DD is hexadecimal for plum
-                stim.color = [1.0, -1.0, -1.0]  # if stim.colorSpace='rgb':
-                                # a red color in rgb space
-                stim.color = [0.0, 45.0, 1.0]  # if stim.colorSpace='dkl':
-                                # DKL space with elev=0, azimuth=45
-                stim.color = [0, 0, 255]  # if stim.colorSpace='rgb255':
-                                # a blue stimulus using rgb255 space
-                stim.color = 255  # interpreted as (255, 255, 255)
-                                  # which is white in rgb255.
+        Examples
+        --------
+        For whatever stim you have::
+
+            stim.color = 'white'
+            stim.color = 'RoyalBlue'  # (the case is actually ignored)
+            stim.color = '#DDA0DD'  # DDA0DD is hexadecimal for plum
+            stim.color = [1.0, -1.0, -1.0]  # if stim.colorSpace='rgb':
+                            # a red color in rgb space
+            stim.color = [0.0, 45.0, 1.0]  # if stim.colorSpace='dkl':
+                            # DKL space with elev=0, azimuth=45
+            stim.color = [0, 0, 255]  # if stim.colorSpace='rgb255':
+                            # a blue stimulus using rgb255 space
+            stim.color = 255  # interpreted as (255, 255, 255)
+                              # which is white in rgb255.
 
 
         :ref:`Operations <attrib-operations>` work as normal for all numeric
@@ -806,7 +813,7 @@ class TextureMixin(object):
             intensity[artifactIdx] = 0
 
         else:
-            if isinstance(tex, basestring):
+            if isinstance(tex, (basestring, Path)):
                 # maybe tex is the name of a file:
                 filename = findImageFile(tex)
                 if not filename:
@@ -1283,7 +1290,7 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         """
         array = numpy.array
         value = val2array(value)  # Check correct user input
-        self._requestedSize = value  # to track whether we're using a default
+        self._requestedSize = copy.copy(value)  # to track whether we're using a default
         # None --> set to default
         if value is None:
             # Set the size to default (e.g. to the size of the loaded image

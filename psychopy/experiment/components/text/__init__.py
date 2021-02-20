@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -57,7 +57,7 @@ class TextComponent(BaseVisualComponent):
         # params
         _allow3 = ['constant', 'set every repeat', 'set every frame']  # list
         self.params['text'] = Param(
-            text, valType='str', allowedTypes=[],
+            text, valType='extendedStr', allowedTypes=[],
             updates='constant', allowedUpdates=_allow3[:],  # copy the list
             hint=_translate("The text to be displayed"),
             label=_localized['text'])
@@ -135,9 +135,9 @@ class TextComponent(BaseVisualComponent):
     def writeInitCodeJS(self, buff):
         # do we need units code?
         if self.params['units'].val == 'from exp settings':
-            unitsStr = "  units : undefined, \n"
+            unitsStr = "  units: undefined, \n"
         else:
-            unitsStr = "  units : %(units)s, \n" % self.params
+            unitsStr = "  units: %(units)s, \n" % self.params
         # do writing of init
         # replaces variable params with sensible defaults
         inits = getInitVals(self.params, 'PsychoJS')
@@ -147,7 +147,7 @@ class TextComponent(BaseVisualComponent):
             if inits[param] in [None, 'None', '']:
                 inits[param].val = 'undefined'
                 if param == 'text':
-                    inits[param].val = "''"
+                    inits[param].val = ""
 
         code = ("%(name)s = new visual.TextStim({\n"
                 "  win: psychoJS.window,\n"

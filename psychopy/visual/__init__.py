@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Container for all visual-related functions and classes
@@ -16,6 +16,7 @@ if sys.platform == 'win32':
     from ctypes import *
     win32.PUINT = POINTER(wintypes.UINT)
 
+from psychopy import event  # import before visual or
 from psychopy.visual import filters
 from psychopy.visual.backends import gamma
 # absolute essentials (nearly all experiments will need these)
@@ -27,6 +28,7 @@ from .text import TextStim
 from .form import Form
 from .button import ButtonStim
 from .brush import Brush
+from .textbox2.textbox2 import TextBox2
 # window, should always be loaded first
 from .window import Window, getMsPerFrame, openWindows
 
@@ -75,6 +77,7 @@ from psychopy.visual.shape import ShapeStim
 from psychopy.visual.line import Line
 from psychopy.visual.polygon import Polygon
 from psychopy.visual.rect import Rect
+from psychopy.visual.pie import Pie
 
 # stimuli derived from Polygon
 from psychopy.visual.circle import Circle
@@ -83,6 +86,18 @@ from psychopy.visual.textbox import TextBox
 
 # rift support 
 from psychopy.visual.rift import Rift
+
+# 3D stimuli support
+from psychopy.visual.stim3d import LightSource
+from psychopy.visual.stim3d import SceneSkybox
+from psychopy.visual.stim3d import BlinnPhongMaterial
+from psychopy.visual.stim3d import RigidBodyPose
+from psychopy.visual.stim3d import BoundingBox
+from psychopy.visual.stim3d import SphereStim
+from psychopy.visual.stim3d import BoxStim
+from psychopy.visual.stim3d import PlaneStim
+from psychopy.visual.stim3d import ObjMeshStim
+
 """
 try:
     from psychopy.contrib.lazy_import import lazy_import
