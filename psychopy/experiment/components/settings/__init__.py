@@ -41,6 +41,7 @@ _numpyRandomImports = ['random', 'randint', 'normal', 'shuffle']
 _localized = {'expName': _translate("Experiment name"),
               'Show info dlg':  _translate("Show info dialog"),
               'Enable Escape':  _translate("Enable Escape key"),
+              'Escape Key to Use':  _translate("Escape Key to Use"),
               'Experiment info':  _translate("Experiment info"),
               'Data filename':  _translate("Data filename"),
               'Data file delimiter':  _translate("Data file delimiter"),
