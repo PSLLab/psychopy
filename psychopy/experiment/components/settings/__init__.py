@@ -146,6 +146,11 @@ class SettingsComponent(object):
             hint=_translate("Enable the <esc> key, to allow subjects to quit"
                             " / break out of the experiment"),
             label=_localized["Enable Escape"])
+        self.params['Escape Key to Use'] = Param(
+            escapeKey, valType='str', allowedTypes=[],
+            hint=_translate("Which key to use to terminate experiment early"),
+            allowedVals=['escape', 'f12']
+            label=_localized["Escape Key to Use"])
         self.params['Experiment info'] = Param(
             expInfo, valType='code', allowedTypes=[],
             hint=_translate("The info to present in a dialog box. Right-click"
