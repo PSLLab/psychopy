@@ -99,6 +99,7 @@ class SettingsComponent(object):
                  expInfo="{'participant':'', 'session':'001'}",
                  units='height', logging='exp',
                  color='$[0,0,0]', colorSpace='rgb', enableEscape=True,
+                 escapeKey='f12',
                  blendMode='avg',
                  saveXLSXFile=False, saveCSVFile=False,
                  saveWideCSVFile=True, savePsydatFile=True,
