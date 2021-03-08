@@ -149,7 +149,7 @@ class SettingsComponent(object):
         self.params['Escape Key to Use'] = Param(
             escapeKey, valType='str', allowedTypes=[],
             hint=_translate("Which key to use to terminate experiment early"),
-            allowedVals=['escape', 'f12']
+            allowedVals=['escape', 'f12'],
             label=_localized["Escape Key to Use"])
         self.params['Experiment info'] = Param(
             expInfo, valType='code', allowedTypes=[],
