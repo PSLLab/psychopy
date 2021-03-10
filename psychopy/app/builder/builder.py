@@ -1195,7 +1195,8 @@ class BuilderFrame(wx.Frame, ThemeMixin):
         return self.app.runner
 
     def _getHtmlPath(self, filename):
-        expPath = os.path.split(filename)[0]
+        # raise Exception('filename is {}'.format(filename))
+        expPath = os.path.split(os.path.abspath(filename))[0]
         if not os.path.isdir(expPath):
             retVal = self.fileSave()
             if retVal:

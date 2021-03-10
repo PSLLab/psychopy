@@ -1,0 +1,54 @@
+psychoJS.experimentLogger.setLevel(core.Logger.ServerLevel.{loggingLevel});
+
+function updateInfo() {{
+  expInfo['date'] = util.MonotonicClock.getDateStr();  // add a simple timestamp
+  expInfo['expName'] = expName;
+  expInfo['psychopyVersion'] = '{version}';
+  expInfo['OS'] = window.navigator.platform;
+
+  // store frame rate of monitor if we can measure it successfully
+  expInfo['frameRate'] = psychoJS.window.getActualFrameRate();
+  if (typeof expInfo['frameRate'] !== 'undefined')
+    frameDur = 1.0 / Math.round(expInfo['frameRate']);
+  else
+    frameDur = 1.0 / 60.0; // couldn't get a reliable measure so guess
+
+  expInfo['resolution'] = '[' + window.innerWidth + ', ' + window.innerHeight + ', ' + window.devicePixelRatio + ']';
+  expInfo['screen_size'] = '[' + window.screen.width + ', ' + window.screen.height + ']';
+  if (document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {{
+    expInfo['fullscreen'] = 'true';
+  }} else {{
+    expInfo['fullscreen'] = 'false';
+  }}
+  if (jatos.urlQueryParameters.hasOwnProperty('participant')) {{
+    expInfo['participant'] = jatos.urlQueryParameters.participant.toString();
+  }} else if (jatos.studyJsonInput.testingMode) {{
+    expInfo['participant'] = jatos.studyJsonInput.defaultSubject.toString();
+  }} else {{
+    window.alert("No participant id provided. Make sure you are using the link from the PRP Sona website. If you see this after trying again, please contact the researcher. Study will now abort.");
+    psychoJS.window.close();
+    jatos.endStudyAndRedirect('aborted.html', false, "Study aborted because no id provided.");
+    return;
+  }}
+  expInfo['jatos_study_id'] = jatos.studyId;
+  expInfo['jatos_component_id'] = jatos.componentId;
+  expInfo['jatos_batch_id'] = jatos.batchId;
+  expInfo['jatos_worker_id'] = jatos.workerId;
+  expInfo['jatos_study_result_id'] = jatos.studyResultId;
+  expInfo['jatos_component_result_id'] = jatos.componentResultId;
+  if (jatos.studySessionData.hasOwnProperty('browser_info')) {{
+    expInfo['browser_info'] = jatos.studySessionData['browser_info'];
+  }} else {{
+    expInfo['browser_info'] = 'NA';
+  }}
+  expInfo['num_blur'] = 0;
+  expInfo['num_focus'] = 0;
+  $(window).on('blur', (e) => {{
+    expInfo['num_blur'] += 1;
+  }});
+  $(window).on('focus', (e) => {{
+    expInfo['num_focus'] += 1;
+  }});
+
+  return Scheduler.Event.NEXT;
+}}

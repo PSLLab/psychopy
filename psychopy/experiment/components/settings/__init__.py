@@ -66,6 +66,7 @@ _localized = {'expName': _translate("Experiment name"),
               'Incomplete URL': _translate("Incomplete URL"),
               'Output path': _translate("Output path"),
               'JS libs': _translate("JS libs"),
+              'Online system': _translate("Online system"),
               'Force stereo': _translate("Force stereo"),
               'Export HTML': _translate("Export HTML")}
 
@@ -104,7 +105,7 @@ class SettingsComponent(object):
                  saveXLSXFile=False, saveCSVFile=False,
                  saveWideCSVFile=True, savePsydatFile=True,
                  savedDataFolder='', savedDataDelim='auto',
-                 useVersion='',
+                 useVersion='', onlineSystem='JATOS',
                  filename=None, exportHTML='on Sync'):
         self.type = 'Settings'
         self.exp = exp  # so we can access the experiment if necess
@@ -293,9 +294,14 @@ class SettingsComponent(object):
         #     hint=_translate("The ID of this project (e.g. 5bqpc)"),
         #     label="OSF Project ID", categ='Online')
         self.params['HTML path'] = Param(
-            '', valType='str', allowedTypes=[],
+            'html', valType='str', allowedTypes=[],
             hint=_translate("Place the HTML files will be saved locally "),
             label="Output path", categ='Online')
+        self.params['Online system'] = Param(
+            onlineSystem, valType='str', allowedTypes=[],
+            hint=_translate("Which online system to use for data collection"),
+            allowedVals=['JATOS', 'Pavlovia'],
+            label=_localized["Online system"], categ='Online')
         self.params['Resources'] = Param(
             [], valType='fileList', allowedTypes=[],
             hint=_translate("Any additional resources needed"),
@@ -554,7 +560,10 @@ class SettingsComponent(object):
         versionStr = '-{}'.format(useVer)
 
         # html header
-        template = readTextFile("JS_htmlHeader.tmpl")
+        if self.params['Online system'].val == 'JATOS':
+            template = readTextFile('JS_htmlHeader_jatos.tmpl')
+        else:
+            template = readTextFile("JS_htmlHeader.tmpl")
         header = template.format(
             name=jsFilename,
             version=versionStr,
@@ -563,64 +572,96 @@ class SettingsComponent(object):
         folder = os.path.dirname(jsFile)
         if not os.path.isdir(folder):
             os.makedirs(folder)
-        with open(os.path.join(folder, "index.html"), 'wb') as html:
-            html.write(header.encode())
-        html.close()
+        if self.params['Online system'].val == 'JATOS':
+            with open(os.path.join(folder, "{fn}.html".format(fn=jsFilename)), 'wb') as html:
+                html.write(header.encode())
+        else:
+            with open(os.path.join(folder, "index.html"), 'wb') as html:
+                html.write(header.encode())
 
         # Write header comment
         starLen = "*"*(len(jsFilename) + 9)
         code = ("/%s \n"
-               " * %s Test *\n"
+               " * %s *\n"
                " %s/\n\n")
         buff.writeIndentedLines(code % (starLen, jsFilename.title(), starLen))
 
         # Write imports if modular
         if modular:
-            code = ("import {{ PsychoJS }} from './lib/core{version}.js';\n"
-                    "import * as core from './lib/core{version}.js';\n"
-                    "import {{ TrialHandler }} from './lib/data{version}.js';\n"
-                    "import {{ Scheduler }} from './lib/util{version}.js';\n"
-                    "import * as visual from './lib/visual{version}.js';\n"
-                    "import * as sound from './lib/sound{version}.js';\n"
-                    "import * as util from './lib/util{version}.js';\n"
-                    "//some handy aliases as in the psychopy scripts;\n"
-                    "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
-                    "const {{ round }} = util;\n"
-                    "\n").format(version=versionStr)
+            if self.params['Online system'].val == 'JATOS':
+                code = ("import {{ PsychoJS }} from './lib/core{version}.js';\n"
+                        "import * as core from './lib/core{version}.js';\n"
+                        "import {{ TrialHandler }} from './lib/data{version}.js';\n"
+                        "import {{ Scheduler }} from './lib/util{version}.js';\n"
+                        "import * as visual from './lib/visual{version}.js';\n"
+                        "import * as sound from './lib/sound{version}.js';\n"
+                        "import * as util from './lib/util{version}.js';\n"
+                        "import {{ ConsoleSubscriber }} from './lib/console-subscriber.js';\n"
+                        "//some handy aliases as in the psychopy scripts;\n"
+                        "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
+                        "const {{ round }} = util;\n"
+                        "\n").format(version=versionStr)
+            else:
+                code = ("import {{ PsychoJS }} from './lib/core{version}.js';\n"
+                        "import * as core from './lib/core{version}.js';\n"
+                        "import {{ TrialHandler }} from './lib/data{version}.js';\n"
+                        "import {{ Scheduler }} from './lib/util{version}.js';\n"
+                        "import * as visual from './lib/visual{version}.js';\n"
+                        "import * as sound from './lib/sound{version}.js';\n"
+                        "import * as util from './lib/util{version}.js';\n"
+                        "//some handy aliases as in the psychopy scripts;\n"
+                        "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
+                        "const {{ round }} = util;\n"
+                        "\n").format(version=versionStr)
             buff.writeIndentedLines(code)
 
         # Write window code
         self.writeWindowCodeJS(buff)
-        code = ("\n// store info about the experiment session:\n"
-                "let expName = '%s';  // from the Builder filename that created this script\n"
-                "let expInfo = %s;\n"
-                "\n" % (jsFilename, self.getInfo()))
+        if self.params['Online system'].val == 'JATOS':
+            code = ("\n// store info about the experiment session:\n"
+                    "let expName = '%s';  // from the Builder filename that created this script\n"
+                    "let expInfo = {};\n"
+                    "\n" % (jsFilename))
+        else:
+            code = ("\n// store info about the experiment session:\n"
+                    "let expName = '%s';  // from the Builder filename that created this script\n"
+                    "let expInfo = %s;\n"
+                    "\n" % (jsFilename, self.getInfo()))
         buff.writeIndentedLines(code)
 
     def writeExpSetupCodeJS(self, buff, version):
 
         # write the code to set up experiment
         buff.setIndentLevel(0, relative=False)
-        template = readTextFile("JS_setupExp.tmpl")
-        setRedirectURL = ''
-        if len(self.params['Completed URL'].val) or len(self.params['Incomplete URL'].val):
-            setRedirectURL = ("psychoJS.setRedirectUrls({completedURL}, {incompleteURL});\n"
-                              .format(completedURL=self.params['Completed URL'],
-                                      incompleteURL=self.params['Incomplete URL']))
-        # check where to save data variables
-        # if self.params['OSF Project ID'].val:
-        #     saveType = "OSF_VIA_EXPERIMENT_SERVER"
-        #     projID = "'{}'".format(self.params['OSF Project ID'].val)
-        # else:
-        #     saveType = "EXPERIMENT_SERVER"
-        #     projID = 'undefined'
-        code = template.format(
-                        params=self.params,
-                        name=self.params['expName'].val,
-                        loggingLevel=self.params['logging level'].val.upper(),
-                        setRedirectURL=setRedirectURL,
-                        version=version,
-                        )
+        if self.params['Online system'].val == 'JATOS':
+            template = readTextFile("JS_setupExp_jatos.tmpl")
+            code = template.format(
+                            params=self.params,
+                            name=self.params['expName'].val,
+                            loggingLevel=self.params['logging level'].val.upper(),
+                            version=version,
+                            )
+        else:
+            template = readTextFile("JS_setupExp.tmpl")
+            setRedirectURL = ''
+            if len(self.params['Completed URL'].val) or len(self.params['Incomplete URL'].val):
+                setRedirectURL = ("psychoJS.setRedirectUrls({completedURL}, {incompleteURL});\n"
+                                  .format(completedURL=self.params['Completed URL'],
+                                          incompleteURL=self.params['Incomplete URL']))
+            # check where to save data variables
+            # if self.params['OSF Project ID'].val:
+            #     saveType = "OSF_VIA_EXPERIMENT_SERVER"
+            #     projID = "'{}'".format(self.params['OSF Project ID'].val)
+            # else:
+            #     saveType = "EXPERIMENT_SERVER"
+            #     projID = 'undefined'
+            code = template.format(
+                            params=self.params,
+                            name=self.params['expName'].val,
+                            loggingLevel=self.params['logging level'].val.upper(),
+                            setRedirectURL=setRedirectURL,
+                            version=version,
+                            )
         buff.writeIndentedLines(code)
 
     def writeStartCode(self, buff, version):
@@ -875,7 +916,10 @@ class SettingsComponent(object):
                     "}\n")
         buff.writeIndentedLines(recordLoopIterationFunc)
 
-        code = ("\nfunction quitPsychoJS(message, isCompleted) {\n")
+        if self.params['Online system'].val == 'JATOS':
+            code = ("\nasync function quitPsychoJS(message, isCompleted) {\n")
+        else:
+            code = ("\nfunction quitPsychoJS(message, isCompleted) {\n")
         buff.writeIndented(code)
         buff.setIndentLevel(1, relative=True)
         code = ("// Check for and save orphaned data\n"
@@ -893,10 +937,29 @@ class SettingsComponent(object):
                     thisComp.writeExperimentEndCodeJS(buff)
                     buff.writeIndented("\n")
 
-        code = ("psychoJS.window.close();\n"
-                "psychoJS.quit({message: message, isCompleted: isCompleted});\n\n"
-                "return Scheduler.Event.QUIT;\n")
-        buff.writeIndentedLines(code)
+        if self.params['Online system'].val == 'JATOS':
+            code = ("psychoJS.window.close();\n"
+                    "await psychoJS.quit({message: message, isCompleted: isCompleted});\n"
+                    "if(isCompleted) {\n")
+            buff.writeIndentedLines(code)
+            buff.setIndentLevel(1, relative=True)
+            # test if ending or next jatos component
+            if len(self.params['Completed URL'].val):
+                buff.writeIndentedLines("jatos.endStudyAndRedirect({completedURL});\n".format(completedURL=self.params['Completed URL']))
+            else:
+                buff.writeIndentedLines("jatos.startNextComponent();\n")
+            code = ("} else {\n"
+                    "  // assume redirect to prolific is end study page in jatos GUI\n"
+                    "  jatos.endStudyAndRedirect('aborted.html', false, 'Study aborted by participant.');\n"
+                    "}\n")
+            buff.setIndentLevel(-1, relative=True)
+            buff.writeIndentedLines(code)
+            buff.writeIndentedLines("return Scheduler.Event.QUIT;\n")
+        else:
+            code = ("psychoJS.window.close();\n"
+                    "psychoJS.quit({message: message, isCompleted: isCompleted});\n\n"
+                    "return Scheduler.Event.QUIT;\n")
+            buff.writeIndentedLines(code)
 
         buff.setIndentLevel(-1, relative=True)
         buff.writeIndented("}\n")

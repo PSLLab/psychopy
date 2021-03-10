@@ -1642,7 +1642,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                 self.conditionsFile = self.conditionsFileOrig
                 self.conditions = self.conditionsOrig
                 return  # no update or display changes
-            
+
             # check for Builder variables
             builderVariables = []
             for condName in self.condNamesInFile:
@@ -1659,7 +1659,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                 self.conditionsFile = self.conditionsFileOrig
                 self.conditions = self.conditionsOrig
                 return  # no update or display changes
-            
+
             duplCondNames = []
             if len(self.condNamesInFile):
                 for condName in self.condNamesInFile:
@@ -1948,10 +1948,12 @@ class FileListCtrl(wx.ListBox):
         self.addBtn.Bind(wx.EVT_BUTTON, self.addItem)
         self.subBtn = wx.Button(parent, -1, style=wx.BU_EXACTFIT, label="-")
         self.subBtn.Bind(wx.EVT_BUTTON, self.removeItem)
+        self.addDirBtn = wx.Button(parent, -1, style=wx.BU_EXACTFIT, label="+dir")
+        self.addDirBtn.Bind(wx.EVT_BUTTON, self.addDir)
 
         self._szr = wx.BoxSizer(wx.HORIZONTAL)
         self.btns = wx.BoxSizer(wx.VERTICAL)
-        self.btns.AddMany((self.addBtn, self.subBtn))
+        self.btns.AddMany((self.addBtn, self.subBtn, self.addDirBtn))
         self._szr.Add(self, proportion=1, flag=wx.EXPAND)
         self._szr.Add(self.btns)
 
@@ -1969,6 +1971,22 @@ class FileListCtrl(wx.ListBox):
         relPaths = []
         expFile = self.builderFrame.filename
         folder = Path(expFile).parent
+        for filename in fileList:
+            relPaths.append(
+                os.path.relpath(filename, folder))
+        self.InsertItems(relPaths, 0)
+
+    def addDir(self, event):
+        dlg = wx.DirDialog(self, message=_translate("Choose directories ..."),
+                            style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+        if dlg.ShowModal() != wx.ID_OK:
+            return 0
+        dirname = dlg.GetPath()
+        relPaths = []
+        expFile = self.builderFrame.filename
+        folder = Path(expFile).parent
+        fileList = [os.path.join(dp, f) for dp, dn, filenames in os.walk(dirname) for f in filenames]
+        # raise Exception('temp {}'.format(fileList))
         for filename in fileList:
             relPaths.append(
                 os.path.relpath(filename, folder))
