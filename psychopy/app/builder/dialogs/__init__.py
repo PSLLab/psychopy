@@ -1972,9 +1972,11 @@ class FileListCtrl(wx.ListBox):
         expFile = self.builderFrame.filename
         folder = Path(expFile).parent
         for filename in fileList:
-            relPaths.append(
-                os.path.relpath(filename, folder))
+            if os.path.basename(filename) != '.DS_Store':
+                relPaths.append(
+                    os.path.relpath(filename, folder))
         self.InsertItems(relPaths, 0)
+        self.SetItems(list(set(self.GetItems())))
 
     def addDir(self, event):
         dlg = wx.DirDialog(self, message=_translate("Choose directories ..."),
@@ -1985,12 +1987,14 @@ class FileListCtrl(wx.ListBox):
         relPaths = []
         expFile = self.builderFrame.filename
         folder = Path(expFile).parent
-        fileList = [os.path.join(dp, f) for dp, dn, filenames in os.walk(dirname) for f in filenames]
+        fileList = [os.path.join(dp, f) for dp, dn, filenames in os.walk(dirname) for f in filenames if os.path.isfile(os.path.join(dp, f))]
         # raise Exception('temp {}'.format(fileList))
         for filename in fileList:
-            relPaths.append(
-                os.path.relpath(filename, folder))
+            if os.path.basename(filename) != '.DS_Store':
+                relPaths.append(
+                    os.path.relpath(filename, folder))
         self.InsertItems(relPaths, 0)
+        self.SetItems(list(set(self.GetItems())))
 
     def removeItem(self, event):
         i = self.GetSelections()
