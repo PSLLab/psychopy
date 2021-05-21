@@ -67,6 +67,7 @@ _localized = {'expName': _translate("Experiment name"),
               'Output path': _translate("Output path"),
               'JS libs': _translate("JS libs"),
               'Online system': _translate("Online system"),
+              'Participant source': _translate("Participant source"),
               'Force stereo': _translate("Force stereo"),
               'Export HTML': _translate("Export HTML")}
 
@@ -106,6 +107,7 @@ class SettingsComponent(object):
                  saveWideCSVFile=True, savePsydatFile=True,
                  savedDataFolder='', savedDataDelim='auto',
                  useVersion='', onlineSystem='JATOS',
+                 participantSource='PRP',
                  filename=None, exportHTML='on Sync'):
         self.type = 'Settings'
         self.exp = exp  # so we can access the experiment if necess
@@ -302,6 +304,11 @@ class SettingsComponent(object):
             hint=_translate("Which online system to use for data collection"),
             allowedVals=['JATOS', 'Pavlovia'],
             label=_localized["Online system"], categ='Online')
+        self.params['Participant source'] = Param(
+            participantSource, valType='str', allowedTypes=[],
+            hint=_translate("Which online system will be used to recruit participants"),
+            allowedVals=['PRP', 'Prolific'],
+            label=_localized["Participant source"], categ='Online')
         self.params['Resources'] = Param(
             [], valType='fileList', allowedTypes=[],
             hint=_translate("Any additional resources needed"),
@@ -634,7 +641,10 @@ class SettingsComponent(object):
         # write the code to set up experiment
         buff.setIndentLevel(0, relative=False)
         if self.params['Online system'].val == 'JATOS':
-            template = readTextFile("JS_setupExp_jatos.tmpl")
+            if self.params['Participant source'].val == 'Prolific':
+                template = readTextFile("JS_setupExp_jatos_Prolific.tmpl")
+            else:
+                template = readTextFile("JS_setupExp_jatos_PRP.tmpl")
             code = template.format(
                             params=self.params,
                             name=self.params['expName'].val,
