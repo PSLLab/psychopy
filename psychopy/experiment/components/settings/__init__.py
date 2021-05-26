@@ -959,8 +959,11 @@ class SettingsComponent(object):
             else:
                 buff.writeIndentedLines("jatos.startNextComponent();\n")
             code = ("} else {\n"
-                    "  // assume redirect to prolific is end study page in jatos GUI\n"
-                    "  jatos.endStudyAndRedirect('aborted.html', false, 'Study aborted by participant.');\n"
+                    "  if(typeof custom_abort_page !== 'undefined' && typeof custom_abort_msg !== 'undefined') {\n"
+                    "    jatos.endStudyAndRedirect(custom_abort_page, false, custom_abort_msg);\n"
+                    "  } else {\n"
+                    "    jatos.endStudyAndRedirect('aborted.html', false, 'Study aborted by participant.');\n"
+                    "  }\n"
                     "}\n")
             buff.setIndentLevel(-1, relative=True)
             buff.writeIndentedLines(code)
