@@ -1380,7 +1380,7 @@ class SettingsComponent(object):
                 buff.writeIndentedLines("jatos.startNextComponent();\n")
             code = ("  }\n"
                     "} else {\n"
-                    "  jatos.endStudyAndRedirect('aborted.html', false, 'Study aborted by participant.');\n"
+                    "  jatos.endStudyAndRedirect('https://experiment.psllab.org/static/aborted.html', false, 'Study aborted by participant.');\n"
                     "}\n")
             buff.setIndentLevel(-2, relative=True)
             buff.writeIndentedLines(code)
