@@ -34,7 +34,7 @@ class TestTrialHandler2(object):
 
     def test_underscores_in_datatype_names2(self):
         trials = data.TrialHandler2([], 1, autoLog=False)
-        for trial in trials:#need to run trials or file won't be saved
+        for trial in trials:  # need to run trials or file won't be saved
             trials.addData('with_underscore', 0)
         base_data_filename = pjoin(self.temp_dir, self.rootName)
 
@@ -182,8 +182,8 @@ class TestTrialHandler2(object):
         t.origin = ''
 
         t_loaded = json_tricks.loads(dump)
-        t_loaded._rng = np.random.RandomState()
-        t_loaded._rng.set_state(t_loaded._rng_state)
+        t_loaded._rng = np.random.default_rng()
+        t_loaded._rng.bit_generator.state = t_loaded._rng_state
         del t_loaded._rng_state
 
         assert t == t_loaded
@@ -196,8 +196,8 @@ class TestTrialHandler2(object):
         t.origin = ''
 
         t_loaded = json_tricks.loads(dump)
-        t_loaded._rng = np.random.RandomState()
-        t_loaded._rng.set_state(t_loaded._rng_state)
+        t_loaded._rng = np.random.default_rng()
+        t_loaded._rng.bit_generator.state = t_loaded._rng_state
         del t_loaded._rng_state
 
         assert t == t_loaded
@@ -210,8 +210,8 @@ class TestTrialHandler2(object):
         t.origin = ''
 
         t_loaded = json_tricks.loads(dump)
-        t_loaded._rng = np.random.RandomState()
-        t_loaded._rng.set_state(t_loaded._rng_state)
+        t_loaded._rng = np.random.default_rng()
+        t_loaded._rng.bit_generator.state = t_loaded._rng_state
         del t_loaded._rng_state
 
         assert t == t_loaded
@@ -225,8 +225,8 @@ class TestTrialHandler2(object):
         t.origin = ''
 
         t_loaded = json_tricks.loads(dump)
-        t_loaded._rng = np.random.RandomState()
-        t_loaded._rng.set_state(t_loaded._rng_state)
+        t_loaded._rng = np.random.default_rng()
+        t_loaded._rng.bit_generator.state = t_loaded._rng_state
         del t_loaded._rng_state
 
         assert t == t_loaded

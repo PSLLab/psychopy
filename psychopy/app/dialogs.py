@@ -57,11 +57,11 @@ class MessageDialog(wx.Dialog):
             self.Bind(wx.EVT_BUTTON, self.onButton, id=wx.ID_YES)
             self.Bind(wx.EVT_BUTTON, self.onButton, id=wx.ID_NO)
 #            self.Bind(wx.EVT_CLOSE, self.onEscape)
-            btnSizer.Add(self.noBtn, 0,
+            btnSizer.Add(self.cancelBtn, 0,
                          wx.ALL | wx.LEFT | wx.ALIGN_CENTER_VERTICAL,
                          border=3)
             btnSizer.AddStretchSpacer()
-            btnSizer.Add(self.cancelBtn, 0,
+            btnSizer.Add(self.noBtn, 0,
                          wx.ALL | wx.RIGHT | wx.ALIGN_CENTER_VERTICAL,
                          border=3)
             btnSizer.Add(self.yesBtn, 0,
@@ -628,6 +628,18 @@ class ListWidget(GlobSizer):
         Set every control to have the same tooltip?
         """
         pass
+
+    def SetValidator(self, validator):
+        # Set Validator on every applicable child element
+        for child in self.Children:
+            if hasattr(child.Window, "SetValidator"):
+                child.Window.SetValidator(validator)
+
+    def Validate(self):
+        # Call Validate on every applicable child element
+        for child in self.Children:
+            if hasattr(child.Window, "Validate"):
+                child.Window.Validate()
 
 
 if __name__ == '__main__':

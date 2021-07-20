@@ -5,8 +5,10 @@ import sys
 import wx
 import wx.lib.agw.aui as aui
 import wx.stc as stc
+import wx.richtext
 from psychopy.localization import _translate
 from wx import py
+import numpy
 import keyword
 import builtins
 from pathlib import Path
@@ -65,6 +67,7 @@ class ThemeMixin:
         stc.STC_LEX_PYTHON: "python",
         stc.STC_LEX_CPP: "c++",
         stc.STC_LEX_R: "R"
+        #stc.STC_LEX_JSON: "json"
     }
     # these are populated and modified by PsychoPyApp.theme.setter
     spec = None
@@ -154,7 +157,8 @@ class ThemeMixin:
             tabIcons = {
                 "Structure": "coderclass16.png",
                 "FileBrowser": "folder-open16.png",
-                "PythonShell": "coderpython16.png"
+                "PythonShell": "coderpython16.png",
+                "ConsoleOutput": "stdout.png",
             }
             target.SetArtProvider(PsychopyTabArt())
             target.GetAuiManager().SetArtProvider(PsychopyDockArt())
@@ -365,10 +369,11 @@ class ThemeMixin:
             0: ['typedef', 'if', 'else', 'return', 'struct', 'for', 'while', 'do',
                 'using', 'namespace', 'union', 'break', 'enum', 'new', 'case',
                 'switch', 'continue', 'volatile', 'finally', 'throw', 'try',
-                'delete', 'typeof', 'sizeof', 'class', 'volatile'],
-            1: ['int', 'float', 'double', 'char', 'short', 'byte', 'void', 'const',
+                'delete', 'typeof', 'sizeof', 'class', 'volatile', 'int',
+                'float', 'double', 'char', 'short', 'byte', 'void', 'const',
                 'unsigned', 'signed', 'NULL', 'true', 'false', 'bool', 'size_t',
-                'long', 'long long']
+                'long', 'long long'],
+            1: []
         }
         if self.GetLexer() == stc.STC_LEX_PYTHON:
             # Python
@@ -385,15 +390,40 @@ class ThemeMixin:
             }
         elif self.GetLexer() == stc.STC_LEX_CPP:
             # C/C++
-            keywords = baseC
+            keywords = baseC.copy()
             if hasattr(self, 'filename'):
                 if self.filename.endswith('.js'):
                     # JavaScript
                     keywords = {
-                        0: ['var', 'const', 'let', 'import', 'function', 'if', 'else', 'return', 'struct', 'for', 'while', 'do',
-                            'finally', 'throw', 'try', 'switch', 'case', 'break'],
+                        0: ['var', 'const', 'let', 'import', 'function', 'if',
+                            'else', 'return', 'struct', 'for', 'while', 'do',
+                            'finally', 'throw', 'try', 'switch', 'case',
+                            'break'],
                         1: ['null', 'false', 'true']
                     }
+                elif any([self.filename.lower().endswith(ext) for ext in (
+                        '.glsl', '.vert', '.frag')]):
+                    # keywords
+                    keywords[0] += [
+                        'invariant', 'precision', 'highp', 'mediump', 'lowp',
+                        'coherent', 'sampler', 'sampler2D', 'layout', 'out',
+                        'in', 'varying', 'uniform', 'attribute']
+                    # types
+                    keywords[0] += [
+                        'vec2', 'vec3', 'vec4', 'mat2', 'mat3', 'mat4',
+                        'ivec2', 'ivec3', 'ivec4', 'imat2', 'imat3', 'imat4',
+                        'bvec2', 'bvec3', 'bvec4', 'bmat2', 'bmat3', 'bmat4',
+                        'dvec2', 'dvec3', 'dvec4', 'dmat2', 'dmat3', 'dmat4']
+                    # reserved
+                    keywords[1] += [
+                        'gl_Position', 'gl_LightSourceParameters',
+                        'gl_MaterialParameters', 'gl_LightModelProducts',
+                        'gl_FrontLightProduct', 'gl_BackLightProduct',
+                        'gl_FrontMaterial', 'gl_BackMaterial', 'gl_FragColor',
+                        'gl_ModelViewMatrix', 'gl_ModelViewProjectionMatrix',
+                        'gl_Vertex', 'gl_NormalMatrix', 'gl_Normal',
+                        'gl_ProjectionMatrix', 'gl_LightSource']
+
         # elif self.GetLexer() == stc.STC_LEX_ARDUINO:
         #     # Arduino
         #     keywords = {
@@ -488,8 +518,28 @@ class ThemeMixin:
                 "commenterror": stc.STC_C_COMMENTDOCKEYWORDERROR,
                 "documentation": stc.STC_C_COMMENTLINEDOC,
                 "documentation2": stc.STC_C_COMMENTDOC,
-                "whitespace": stc.STC_C_DEFAULT
+                "whitespace": stc.STC_C_DEFAULT,
+                "preprocessor": stc.STC_C_PREPROCESSOR,
+                "preprocessorcomment": stc.STC_C_PREPROCESSORCOMMENT
             })
+        # elif self.GetLexer() == stc.STC_LEX_JSON:
+        #     # JSON
+        #     tags.update({
+        #         "operator": stc.STC_JSON_OPERATOR,
+        #         "keyword": stc.STC_JSON_KEYWORD,
+        #         "uri": stc.STC_JSON_URI,
+        #         "compactiri": stc.STC_JSON_COMPACTIRI,
+        #         "error": stc.STC_JSON_ERROR,
+        #         "espacesequence": stc.STC_JSON_ESCAPESEQUENCE,
+        #         "propertyname": stc.STC_JSON_PROPERTYNAME,
+        #         "ldkeyword": stc.STC_JSON_LDKEYWORD,
+        #         "num": stc.STC_JSON_NUMBER,
+        #         "str": stc.STC_JSON_STRING,
+        #         "openstr": stc.STC_JSON_STRINGEOL,
+        #         "comment": stc.STC_JSON_LINECOMMENT,
+        #         "commentblock": stc.STC_JSON_BLOCKCOMMENT,
+        #         "whitespace": stc.STC_JSON_DEFAULT
+        #     })
         return tags
 
     def hex2rgb(self, hex, base=(0, 0, 0, 255)):
@@ -548,19 +598,20 @@ class ThemeMixin:
         if "italic" in base:
             italic = [base.pop(base.index("italic"))]
         # Append base and default fonts
-        fontList.extend(base+["Consolas", "Monaco", "Lucida Console"])
+        fontList.extend(base+["JetBrains Mono"])
+        if "" in fontList:
+            del fontList[fontList.index("")]
         # Set starting font in case none are found
-        if sys.platform == 'win32':
-            finalFont = [wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT).GetFaceName()]
-        else:
+        try:
             finalFont = [wx.SystemSettings.GetFont(wx.SYS_ANSI_FIXED_FONT).GetFaceName()]
+        except wx._core.wxAssertionError:
+            finalFont = [wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL).GetFaceName()]
         # Cycle through font names, stop at first valid font
         if sys.platform == 'win32':
             for font in fontList:
-                if fm.findfont(font) not in fm.defaultFont.values():
+                if font in wx.FontEnumerator().GetFacenames():
                     finalFont = [font] + bold + italic
                     break
-
         return ','.join(finalFont)
 
     def _setCodeColors(self, spec):
@@ -779,7 +830,7 @@ class IconCache:
             nameSmall = _getIdentifier(name, theme, emblem, pix//2)
             self._bitmaps[nameSmall] = wx.Bitmap(im.Scale(pix//2, pix//2))
 
-    def getBitmap(self, name, theme=None, size=None, emblem=None):
+    def getBitmap(self, name, theme=None, size=None, emblem=None, beta=False):
         """Retrieves an icon based on its name, theme, size and emblem
         either from the cache or loading from file as needed"""
         if theme is None:
@@ -791,6 +842,40 @@ class IconCache:
         if identifier not in IconCache._bitmaps:
             # load all size icons for this name
             self._loadBitmap(name, theme, emblem=emblem, size=size)
+
+        if beta:
+            # If needed, append beta tag
+            betaID = _getIdentifier("beta", theme=theme, emblem=emblem, size=size)
+            if betaID not in IconCache._bitmaps:
+                self._loadBitmap("beta", theme, emblem=emblem, size=size)
+            # Get base icon and beta overlay
+            betaImg = IconCache._bitmaps[betaID].ConvertToImage()
+            baseImg = IconCache._bitmaps[identifier].ConvertToImage()
+            # Get color data and alphas
+            betaData = numpy.array(betaImg.GetData())
+            betaAlpha = numpy.array(betaImg.GetAlpha(), dtype=int)
+            baseData = numpy.array(baseImg.GetData())
+            baseAlpha = numpy.array(baseImg.GetAlpha(), dtype=int)
+            # Overlay colors
+            combinedData = baseData
+            r = numpy.where(betaAlpha > 0)[0] * 3
+            g = numpy.where(betaAlpha > 0)[0] * 3 + 1
+            b = numpy.where(betaAlpha > 0)[0] * 3 + 2
+            combinedData[r] = betaData[r]
+            combinedData[g] = betaData[g]
+            combinedData[b] = betaData[b]
+            # Combine alphas
+            combinedAlpha = numpy.add(baseAlpha, betaAlpha)
+            combinedAlpha[combinedAlpha > 255] = 255
+            combinedAlpha = numpy.uint8(combinedAlpha)
+            # Set these back to the base image
+            combined = betaImg
+            combined.SetData(combinedData)
+            combined.SetAlpha(combinedAlpha)
+            # Replace icon
+            identifier += "_beta"
+            IconCache._bitmaps[identifier] = combined.ConvertToBitmap()
+
         return IconCache._bitmaps[identifier]
 
     def makeBitmapButton(self, parent, filename,

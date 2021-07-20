@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Part of the psychopy.iohub library.
-# Copyright (C) 2012-2016 iSolver Software Solutions
+# Part of the PsychoPy library
+# Copyright (C) 2012-2020 iSolver Software Solutions (C) 2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 from __future__ import division, absolute_import, print_function
 
@@ -52,7 +51,7 @@ def displayDataFileSelectionDialog(starting_dir=None):
 
     filePath = fileOpenDlg(tryFilePath=starting_dir, 
                            prompt = "Select a ioHub HDF5 File",
-                           allowed='HDF5 Files (*.hdf5)|*.hdf5')
+                           allowed='HDF5 Files (*.hdf5)')
     
 
     if filePath is None:
@@ -449,7 +448,7 @@ class ExperimentDataAccessUtility(object):
                 row.fetch_all_fields() for row in klassTables.where(
                     '(class_id == %d) & (class_type_id == 1)' %
                     (event_type_id))]
-            if len(result) is not 1:
+            if len(result) != 1:
                 raise ExperimentDataAccessException("event_type_id passed to getEventAttribute should only return one row from CLASS_MAPPINGS.")
             tablePathString = result[0][3]
             deviceEventTable = getattr(self.hdfFile, get_node)(tablePathString)

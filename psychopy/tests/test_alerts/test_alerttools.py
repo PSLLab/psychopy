@@ -78,7 +78,7 @@ class TestAlertTools(object):
     def test_disabled(self):
         self.polygonComp.params['disabled'].val = True
         alerttools.testDisabled(self.polygonComp)
-        assert ('Your component is currently disabled' in self.error.alerts[0].msg)
+        assert (f"The component {self.polygonComp.params['name']} is currently disabled" in self.error.alerts[0].msg)
 
     def test_achievable_visual_stim_onset(self):
         self.polygonComp.params['startVal'].val = .001
@@ -101,7 +101,7 @@ class TestAlertTools(object):
         self.polygonComp.params['startVal'].val = .5
         self.polygonComp.params['startType'].val = "duration (frames)"
         self.exp.integrityCheck()
-        assert ("Your stimulus start type 'duration (frames)' must be expressed as a whole number" in self.error.alerts[0].msg)
+        assert ("Your stimulus start type \'duration (frames)\' must be expressed as a whole number" in self.error.alerts[0].msg)
 
     def test_python_syntax(self):
         alerttools.checkPythonSyntax(self.codeComp, 'Begin Experiment')

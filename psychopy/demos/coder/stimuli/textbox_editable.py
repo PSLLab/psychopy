@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import psychopy
 from psychopy import visual, core, event, logging
 import numpy as np
 
@@ -24,7 +23,7 @@ arial.preload(nChars)  # or set to preload specific string of chars
 logging.exp("{:.3f}: preloaded {} chars".format(c.getTime(), nChars))
 
 txt1 = TextBox2(win, text="Type here, it's toptastic", font='Times',
-                color='black', colorSpace='named', 
+                color='black', colorSpace='named',
                 pos=(0, 0.4), letterHeight=0.05, units='height',
                 size=[0.8, 0.2],
                 anchor='center-top',
@@ -46,20 +45,20 @@ txt3 = TextBox2(win, text='Good for non-editable text (Esc to quit)',
             letterHeight=0.02,
             editable=False)
 
+txt1.autoDraw=True
+txt2.autoDraw=True
+txt3.autoDraw=True
+
 clock = core.Clock()
 t=0
-while t<20:
+while t<30:
     t= clock.getTime()
-    
-    txt1.draw()
-    
+
     txt2.pos = (0.2*np.sin(t), 0.2*np.cos(t))
-    txt2.draw()
-    
-    txt3.draw()
+
     if 'escape' in event.getKeys():
         core.quit()
 
     win.flip()
-logging.flush()
 
+logging.flush()

@@ -15,6 +15,10 @@ unique. Additionally the length of the interval
 must be greater than 0.2 seconds.  If you need higher speeds than this, it is best to
 record the times of your markers manually and compare them to the times in the raw EEG data.
 
+If you are exporting the experiment to HTML the emotiv components will have no effect in Pavlovia.
+To import the experiment into Emotiv OMNI, export the experiment to HTML and follow the instructions
+in the OMNI platform.
+
 Parameters
 ~~~~~~~~~~~~
 
@@ -33,4 +37,17 @@ Stop Marker:
 
 Stop :
     Governs the duration for which the stimulus is presented. See :ref:`startStop` for details.
+
+marker label : string
+    The label assigned to this marker
+
+marker value : int
+    The value assigned to this marker
+
+stop marker : bool
+    Whether or not this is a stop marker.  Note: stop markers were designed for relatively
+    long intervals (of the order of one second).  If you wish to mark short intervals
+    it is safer to send two instance markers and label them appropriately so that you can
+    create the intervals in post processing.
+
 

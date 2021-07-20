@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Conditions-file preview and mini-editor for the Builder
@@ -22,7 +22,8 @@ from wx.lib.expando import ExpandoTextCtrl, EVT_ETC_LAYOUT_NEEDED
 from pkg_resources import parse_version
 
 from psychopy import gui
-from psychopy.experiment.utils import valid_var_re, nonalphanumeric_re
+from psychopy.experiment.utils import valid_var_re
+from psychopy.data.utils import _nonalphanumeric_re
 from psychopy.localization import _translate
 
 from psychopy.constants import PY3
@@ -518,18 +519,30 @@ class DlgConditions(wx.Dialog):
             helpBtn.Bind(wx.EVT_BUTTON, self.onHelp)
             buttons.Add(helpBtn, wx.ALIGN_CENTER | wx.ALL)
             buttons.AddSpacer(12)
+        # Add Okay and Cancel buttons
         self.OKbtn = wx.Button(self, wx.ID_OK, _translate(" OK "))
         if not self.fixed:
             self.OKbtn.SetToolTip(wx.ToolTip(_translate('Save and exit')))
         self.OKbtn.Bind(wx.EVT_BUTTON, self.onOK)
         self.OKbtn.SetDefault()
-        buttons.Add(self.OKbtn)
         if not self.fixed:
             buttons.AddSpacer(4)
             CANCEL = wx.Button(self, wx.ID_CANCEL, _translate(" Cancel "))
             CANCEL.SetToolTip(wx.ToolTip(
                 _translate('Exit, discard any edits')))
             buttons.Add(CANCEL)
+        else:
+            CANCEL = None
+
+        if sys.platform == "win32":
+            btns = [self.OKbtn, CANCEL]
+        else:
+            btns = [CANCEL, self.OKbtn]
+
+        if not self.fixed:
+            btns.remove(btns.index(CANCEL))
+
+        buttons.AddMany(btns)
         buttons.AddSpacer(8)
         buttons.Realize()
         self.border.Add(buttons, 1, flag=wx.BOTTOM | wx.ALIGN_RIGHT, border=8)

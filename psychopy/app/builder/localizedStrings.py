@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """
@@ -18,12 +18,40 @@ import glob
 from psychopy.localization import _localized as _localizedBase
 from psychopy.localization import _translate
 
+_localizedCategories = {
+    'Basic': _translate('Basic'),
+    'Color': _translate('Color'),
+    'Layout': _translate('Layout'),
+    'Data': _translate('Data'),
+    'Screen': _translate('Screen'),
+    'Dots': _translate('Dots'),
+    'Grating': _translate('Grating'),
+    'Advanced': _translate('Advanced'),
+    'Custom': _translate('Custom'),
+    'Carrier': _translate('Carrier'),
+    'Envelope': _translate('Envelope'),
+    'Appearance': _translate('Appearance'),
+    'Save': _translate('Save'),
+    'Online':_translate('Online'),
+    'Testing':_translate('Testing'),
+    'Audio':_translate('Audio'),
+    'Format':_translate('Format'),
+    'Formatting':_translate('Formatting'),
+    'Eyetracking':_translate('Eyetracking'),
+    'Target':_translate('Target'),
+    'Animation':_translate('Animation'),
+    'Transcription':_translate('Transcription'),
+    'Timing':_translate('Timing'),
+    'Playback':_translate('Playback')
+}
+
 _localizedDialogs = {
     # strings for all allowedVals (from all components) go here:
     # interpolation
     'linear': _translate('linear'),
     'nearest': _translate('nearest'),
-    # color spaces not translated:
+    # color spaces (except "named") should not be translated:
+    'named': _translate('named'),
     'rgb': 'rgb', 'dkl': 'dkl', 'lms': 'lms', 'hsv': 'hsv',
     'last key': _translate('last key'),
     'first key': _translate('first key'),
@@ -87,6 +115,13 @@ _localizedDialogs = {
     'valid click': _translate('valid click'),
     'mouse onset':_translate('mouse onset'),
     'Routine': _translate('Routine'),
+    # Joystick:
+    'joystick onset':_translate('joystick onset'),
+    # Button:
+    'every click': _translate('every click'),
+    'first click': _translate('first click'),
+    'last click': _translate('last click'),
+    'button onset': _translate('button onset'),
     # Polygon:
     'line': _translate('line'),
     'triangle': _translate('triangle'),
@@ -94,6 +129,10 @@ _localizedDialogs = {
     'cross': _translate('cross'),
     'star': _translate('star'),
     'regular polygon...': _translate('regular polygon...'),
+    'custom polygon...': _translate('custom polygon...'),
+    # Form
+    'rows': _translate('rows'),
+    'columns': _translate('columns'),
     # Variable component
     'first': _translate('first'),
     'last': _translate('last'),
@@ -107,10 +146,19 @@ _localizedDialogs = {
     'Builder variable': _translate('Builder variable'),
     'Psychopy module': _translate('Psychopy module'),
     'numpy function': _translate('numpy function'),
-    'python keyword': _translate('python keyword')}
+    'python keyword': _translate('python keyword'),
+    # Eyetracker - ROI
+    'look at': _translate('look at'),
+    'look away': _translate('look away'),
+    'every look': _translate('every look'),
+    'first look': _translate('first look'),
+    'last look': _translate('last look'),
+    'roi onset': _translate('roi onset')
+}
 
 
 _localized = copy.copy(_localizedBase)
+_localized.update(_localizedCategories)
 _localized.update(_localizedDialogs)
 
 thisDir = os.path.dirname(os.path.abspath(__file__))
@@ -121,7 +169,7 @@ components = [os.path.basename(m).replace('.py', '') for m in modules
 for comp in components:
     try:
         exec('from psychopy.experiment.components.' + comp + ' import _localized as _loc')
-        _localized.update(_loc)
+        _localized.update(_loc)  # noqa: F821  # exists through exec import
     except ImportError:
         pass
 

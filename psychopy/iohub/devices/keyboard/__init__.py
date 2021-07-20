@@ -1,5 +1,6 @@
-# Part of the psychopy.iohub library.
-# Copyright (C) 2012-2016 iSolver Software Solutions
+# -*- coding: utf-8 -*-
+# Part of the PsychoPy library
+# Copyright (C) 2012-2020 iSolver Software Solutions (C) 2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 global Keyboard
@@ -88,7 +89,7 @@ class ioHubKeyboardDevice(Device):
 
     def getCurrentDeviceState(self, clear_events=True):
         mods = self.getModifierState()
-        presses = self._key_states
+        presses = {str(k):v for k,v in list(self._key_states.items())}
         dstate = Device.getCurrentDeviceState(self, clear_events)
         dstate['modifiers'] = mods
         dstate['pressed_keys'] = presses

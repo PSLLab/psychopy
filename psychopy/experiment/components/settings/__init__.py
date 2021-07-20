@@ -6,14 +6,19 @@ from __future__ import absolute_import, print_function
 from builtins import str
 from builtins import object
 import os
+from pathlib import Path
+from xml.etree.ElementTree import Element
 import re
 import wx.__version__
 import psychopy
 from psychopy import logging
 from psychopy.experiment.components import Param, _translate
-from psychopy.tools.versionchooser import versionOptions, availableVersions, _versionFilter, latestVersion
+from psychopy.experiment.routines.eyetracker_calibrate import EyetrackerCalibrationRoutine
+import psychopy.tools.versionchooser as versions
 from psychopy.constants import PY3
 from psychopy.monitors import Monitor
+from psychopy.iohub import util as ioUtil
+from psychopy.alerts import alert
 
 # for creating html output folders:
 import shutil
@@ -23,7 +28,7 @@ import ast  # for doing literal eval to convert '["a","b"]' to a list
 
 
 def readTextFile(relPath):
-    fullPath = os.path.join(thisFolder, relPath)
+    fullPath = os.path.join(Path(__file__).parent, relPath)
     with open(fullPath, "r") as f:
         txt = f.read()
     return txt
@@ -32,7 +37,7 @@ def readTextFile(relPath):
 # used when writing scripts and in namespace:
 _numpyImports = ['sin', 'cos', 'tan', 'log', 'log10', 'pi', 'average',
                  'sqrt', 'std', 'deg2rad', 'rad2deg', 'linspace', 'asarray']
-_numpyRandomImports = ['random', 'randint', 'normal', 'shuffle']
+_numpyRandomImports = ['random', 'randint', 'normal', 'shuffle', 'choice as randchoice']
 
 # this is not a standard component - it will appear on toolbar not in
 # components panel
@@ -65,13 +70,13 @@ _localized = {'expName': _translate("Experiment name"),
               'Completed URL': _translate("Completed URL"),
               'Incomplete URL': _translate("Incomplete URL"),
               'Output path': _translate("Output path"),
+              'Additional Resources': _translate("Additional Resources"),
               'JS libs': _translate("JS libs"),
               'Online system': _translate("Online system"),
               'Participant source': _translate("Participant source"),
               'Force stereo': _translate("Force stereo"),
               'Export HTML': _translate("Export HTML")}
-
-thisFolder = os.path.split(__file__)[0]
+ioDeviceMap = dict(ioUtil.getDeviceNames())
 #
 #
 # # customize the Proj ID Param class to
@@ -91,9 +96,16 @@ thisFolder = os.path.split(__file__)[0]
 #     def allowedVals(self, allowed):
 #         pass
 
+
 class SettingsComponent(object):
     """This component stores general info about how to run the experiment
     """
+    targets = ['PsychoPy']
+
+    categories = ['Custom']
+    targets = ['PsychoPy', 'PsychoJS']
+    iconFile = Path(__file__).parent / 'settings.png'
+    tooltip = _translate("Edit settings for this experiment")
 
     def __init__(self, parentName, exp, expName='', fullScr=True,
                  winSize=(1024, 768), screen=1, monitor='testMonitor',
@@ -103,17 +115,25 @@ class SettingsComponent(object):
                  color='$[0,0,0]', colorSpace='rgb', enableEscape=True,
                  escapeKey='f12',
                  blendMode='avg',
-                 saveXLSXFile=False, saveCSVFile=False,
+                 saveXLSXFile=False, saveCSVFile=False, saveHDF5File=False,
                  saveWideCSVFile=True, savePsydatFile=True,
                  savedDataFolder='', savedDataDelim='auto',
                  useVersion='', onlineSystem='JATOS',
                  participantSource='PRP',
+                 eyetracker="None",
+                 mgMove='CONTINUOUS', mgBlink='MIDDLE_BUTTON', mgSaccade=0.5,
+                 gpAddress='127.0.0.1', gpPort=4242,
+                 elModel='EYELINK 1000 DESKTOP', elSimMode=False, elSampleRate=1000, elTrackEyes="RIGHT_EYE",
+                 elLiveFiltering="FILTER_LEVEL_OFF", elDataFiltering="FILTER_LEVEL_2",
+                 elTrackingMode='PUPIL_CR_TRACKING', elPupilMeasure='PUPIL_AREA', elPupilAlgorithm='ELLIPSE_FIT',
+                 elAddress='100.1.1.1',
+                 tbModel="", tbLicenseFile="", tbSerialNo="", tbSampleRate=60,
                  filename=None, exportHTML='on Sync'):
         self.type = 'Settings'
         self.exp = exp  # so we can access the experiment if necess
         self.exp.requirePsychopyLibs(['visual', 'gui'])
         self.parentName = parentName
-        self.url = "http://www.psychopy.org/builder/settings.html"
+        self.url = "https://www.psychopy.org/builder/settings.html"
         self._monitor = None
 
         # if filename is the default value fetch the builder pref for the
@@ -127,27 +147,29 @@ class SettingsComponent(object):
 
         # params
         self.params = {}
-        self.order = ['expName', 'Show info dlg', 'Experiment info',
-                      'Data filename',
-                      'Save excel file', 'Save csv file',
-                      'Save wide csv file', 'Save psydat file',
-                      'Save log file', 'logging level',
-                      'Monitor', 'Screen', 'Full-screen window',
-                      'Window size (pixels)',
-                      'color', 'colorSpace', 'Units', 'HTML path']
+        self.depends = []
+        self.order = ['expName', 'Use version', 'Show info dlg', 'Enable Escape',  'Experiment info',  # Basic tab
+                      'Data filename', 'Data file delimiter', 'Save excel file', 'Save csv file', 'Save wide csv file',
+                      'Save psydat file', 'Save hdf5 file', 'Save log file', 'logging level',  # Data tab
+                      'Audio lib', 'Audio latency priority', "Force stereo",  # Audio tab
+                      'HTML path', 'exportHTML', 'Completed URL', 'Incomplete URL', 'Resources',  # Online tab
+                      'Monitor', 'Screen', 'Full-screen window', 'Window size (pixels)', 'Units', 'color',
+                      'colorSpace',  # Screen tab
+                      ]
+        self.depends = []
         # basic params
         self.params['expName'] = Param(
-            expName, valType='str', allowedTypes=[],
+            expName, valType='str',  inputType="single", allowedTypes=[],
             hint=_translate("Name of the entire experiment (taken by default"
                             " from the filename on save)"),
             label=_localized["expName"])
         self.params['Show info dlg'] = Param(
-            showExpInfo, valType='bool', allowedTypes=[],
+            showExpInfo, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Start the experiment with a dialog to set info"
                             " (e.g.participant or condition)"),
             label=_localized["Show info dlg"], categ='Basic')
         self.params['Enable Escape'] = Param(
-            enableEscape, valType='bool', allowedTypes=[],
+            enableEscape, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Enable the <esc> key, to allow subjects to quit"
                             " / break out of the experiment"),
             label=_localized["Enable Escape"])
@@ -157,76 +179,76 @@ class SettingsComponent(object):
             allowedVals=['escape', 'f12'],
             label=_localized["Escape Key to Use"])
         self.params['Experiment info'] = Param(
-            expInfo, valType='code', allowedTypes=[],
+            expInfo, valType='code', inputType="dict", allowedTypes=[],
             hint=_translate("The info to present in a dialog box. Right-click"
                             " to check syntax and preview the dialog box."),
             label=_localized["Experiment info"], categ='Basic')
         self.params['Use version'] = Param(
-            useVersion, valType='str',
+            useVersion, valType='str', inputType="choice",
             # search for options locally only by default, otherwise sluggish
-            allowedVals=_versionFilter(versionOptions(), wx.__version__)
+            allowedVals=versions._versionFilter(versions.versionOptions(), wx.__version__)
                         + ['']
-                        + _versionFilter(availableVersions(), wx.__version__),
+                        + versions._versionFilter(versions.availableVersions(), wx.__version__),
             hint=_translate("The version of PsychoPy to use when running "
                             "the experiment."),
             label=_localized["Use version"], categ='Basic')
-        self.params['Force stereo'] = Param(
-            enableEscape, valType='bool', allowedTypes=[],
-            hint=_translate("Force audio to stereo (2-channel) output"),
-            label=_localized["Force stereo"])
 
         # screen params
         self.params['Full-screen window'] = Param(
-            fullScr, valType='bool', allowedTypes=[],
+            fullScr, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Run the experiment full-screen (recommended)"),
             label=_localized["Full-screen window"], categ='Screen')
         self.params['Window size (pixels)'] = Param(
-            winSize, valType='code', allowedTypes=[],
+            winSize, valType='list', inputType="single", allowedTypes=[],
             hint=_translate("Size of window (if not fullscreen)"),
             label=_localized["Window size (pixels)"], categ='Screen')
         self.params['Screen'] = Param(
-            screen, valType='num', allowedTypes=[],
+            screen, valType='num', inputType="spin", allowedTypes=[],
             hint=_translate("Which physical screen to run on (1 or 2)"),
             label=_localized["Screen"], categ='Screen')
         self.params['Monitor'] = Param(
-            monitor, valType='str', allowedTypes=[],
+            monitor, valType='str', inputType="single", allowedTypes=[],
             hint=_translate("Name of the monitor (from Monitor Center). Right"
                             "-click to go there, then copy & paste a monitor "
                             "name here."),
             label=_localized["Monitor"], categ="Screen")
         self.params['color'] = Param(
-            color, valType='str', allowedTypes=[],
+            color, valType='color', inputType="color", allowedTypes=[],
             hint=_translate("Color of the screen (e.g. black, $[1.0,1.0,1.0],"
                             " $variable. Right-click to bring up a "
                             "color-picker.)"),
             label=_localized["color"], categ='Screen')
         self.params['colorSpace'] = Param(
-            colorSpace, valType='str',
+            colorSpace, valType='str', inputType="choice",
             hint=_translate("Needed if color is defined numerically (see "
                             "PsychoPy documentation on color spaces)"),
             allowedVals=['rgb', 'dkl', 'lms', 'hsv', 'hex'],
             label=_localized["colorSpace"], categ="Screen")
         self.params['Units'] = Param(
-            units, valType='str', allowedTypes=[],
+            units, valType='str', inputType="choice", allowedTypes=[],
             allowedVals=['use prefs', 'deg', 'pix', 'cm', 'norm', 'height',
                          'degFlatPos', 'degFlat'],
             hint=_translate("Units to use for window/stimulus coordinates "
                             "(e.g. cm, pix, deg)"),
             label=_localized["Units"], categ='Screen')
         self.params['blendMode'] = Param(
-            blendMode, valType='str',
+            blendMode, valType='str', inputType="choice",
             allowedTypes=[], allowedVals=['add', 'avg'],
             hint=_translate("Should new stimuli be added or averaged with "
                             "the stimuli that have been drawn already"),
             label=_localized["blendMode"], categ='Screen')
         self.params['Show mouse'] = Param(
-            showMouse, valType='bool', allowedTypes=[],
+            showMouse, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Should the mouse be visible on screen?"),
             label=_localized["Show mouse"], categ='Screen')
 
         # sound params
+        self.params['Force stereo'] = Param(
+            enableEscape, valType='bool', inputType="bool", allowedTypes=[], categ="Audio",
+            hint=_translate("Force audio to stereo (2-channel) output"),
+            label=_localized["Force stereo"])
         self.params['Audio lib'] = Param(
-            'use prefs', valType='str',
+            'use prefs', valType='str', inputType="choice",
             allowedVals=['use prefs', 'ptb', 'pyo', 'sounddevice', 'pygame'],
             hint=_translate("Which Python sound engine do you want to play your sounds?"),
             label=_translate("Audio library"), categ='Audio')
@@ -240,7 +262,7 @@ class SettingsComponent(object):
             '4: ' + _translate('Latency critical'),
         ]
         self.params['Audio latency priority'] = Param(
-            'use prefs', valType='str',
+            'use prefs', valType='str', inputType="choice",
             allowedVals=['use prefs', '0', '1', '2', '3', '4'],
             allowedLabels=audioLatencyLabels,
             hint=_translate("How important is audio latency for you? If essential then you may need to get all your sounds in correct formats."),
@@ -248,43 +270,48 @@ class SettingsComponent(object):
 
         # data params
         self.params['Data filename'] = Param(
-            filename, valType='code', allowedTypes=[],
+            filename, valType='code', inputType="single", allowedTypes=[],
             hint=_translate("Code to create your custom file name base. Don"
                             "'t give a file extension - this will be added."),
             label=_localized["Data filename"], categ='Data')
         self.params['Data file delimiter'] = Param(
-            savedDataDelim, valType='str',
+            savedDataDelim, valType='str', inputType="choice",
             allowedVals=['auto', 'comma', 'semicolon', 'tab'],
             hint=_translate("What symbol should the data file use to separate columns? ""Auto"" will select a delimiter automatically from the filename."),
             label=_translate("Data file delimiter"), categ='Data'
         )
         self.params['Save log file'] = Param(
-            saveLogFile, valType='bool', allowedTypes=[],
+            saveLogFile, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Save a detailed log (more detailed than the "
                             "excel/csv files) of the entire experiment"),
             label=_localized["Save log file"], categ='Data')
         self.params['Save wide csv file'] = Param(
-            saveWideCSVFile, valType='bool', allowedTypes=[],
+            saveWideCSVFile, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Save data from loops in comma-separated-value "
                             "(.csv) format for maximum portability"),
             label=_localized["Save wide csv file"], categ='Data')
         self.params['Save csv file'] = Param(
-            saveCSVFile, valType='bool', allowedTypes=[],
+            saveCSVFile, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Save data from loops in comma-separated-value "
                             "(.csv) format for maximum portability"),
             label=_localized["Save csv file"], categ='Data')
         self.params['Save excel file'] = Param(
-            saveXLSXFile, valType='bool', allowedTypes=[],
+            saveXLSXFile, valType='bool', inputType="bool", allowedTypes=[],
             hint=_translate("Save data from loops in Excel (.xlsx) format"),
             label=_localized["Save excel file"], categ='Data')
         self.params['Save psydat file'] = Param(
-            savePsydatFile, valType='bool', allowedVals=[True],
+            savePsydatFile, valType='bool', inputType="bool", allowedVals=[True],
             hint=_translate("Save data from loops in psydat format. This is "
                             "useful for python programmers to generate "
                             "analysis scripts."),
             label=_localized["Save psydat file"], categ='Data')
+        self.params['Save hdf5 file'] = Param(
+            saveHDF5File, valType='bool', inputType="bool",
+            hint=_translate("Save data from eyetrackers in hdf5 format. This is "
+                            "useful for viewing and analyzing complex data in structures."),
+            label=_translate("Save hdf5 file"), categ='Data')
         self.params['logging level'] = Param(
-            logging, valType='code',
+            logging, valType='code', inputType="choice",
             allowedVals=['error', 'warning', 'data', 'exp', 'info', 'debug'],
             hint=_translate("How much output do you want in the log files? "
                             "('error' is fewest messages, 'debug' is most)"),
@@ -296,7 +323,7 @@ class SettingsComponent(object):
         #     hint=_translate("The ID of this project (e.g. 5bqpc)"),
         #     label="OSF Project ID", categ='Online')
         self.params['HTML path'] = Param(
-            'html', valType='str', allowedTypes=[],
+            '', valType='str', inputType="single", allowedTypes=[],
             hint=_translate("Place the HTML files will be saved locally "),
             label="Output path", categ='Online')
         self.params['Online system'] = Param(
@@ -310,24 +337,210 @@ class SettingsComponent(object):
             allowedVals=['PRP', 'Prolific'],
             label=_localized["Participant source"], categ='Online')
         self.params['Resources'] = Param(
-            [], valType='fileList', allowedTypes=[],
+            [], valType='list', inputType="fileList", allowedTypes=[],
             hint=_translate("Any additional resources needed"),
             label="Additional Resources", categ='Online')
         self.params['Completed URL'] = Param(
-            '', valType='str',
+            '', valType='str', inputType="single",
             hint=_translate("Where should participants be redirected after the experiment on completion\n"
                             " INSERT COMPLETION URL E.G.?"),
             label="Completed URL", categ='Online')
         self.params['Incomplete URL'] = Param(
-            '', valType='str',
+            '', valType='str', inputType="single",
             hint=_translate("Where participants are redirected if they do not complete the task\n"
                             " INSERT INCOMPLETION URL E.G.?"),
             label="Incomplete URL", categ='Online')
         self.params['exportHTML'] = Param(
-            exportHTML, valType='str',
+            exportHTML, valType='str', inputType="choice",
             allowedVals=['on Save', 'on Sync', 'manually'],
             hint=_translate("When to export experiment to the HTML folder."),
             label=_localized["Export HTML"], categ='Online')
+
+        # Eyetracking params
+        self.order += ["eyetracker",
+                       "gpAddress", "gpPort",
+                       "elModel", "elAddress", "elSimMode"]
+
+        # Hide params when not relevant to current eyetracker
+        trackerParams = {
+            "MouseGaze": ["mgMove", "mgBlink", "mgSaccade"],
+            "GazePoint": ["gpAddress", "gpPort"],
+            "SR Research Ltd": ["elModel", "elSimMode", "elSampleRate", "elTrackEyes", "elLiveFiltering",
+                                "elDataFiltering", "elTrackingMode", "elPupilMeasure", "elPupilAlgorithm",
+                                "elAddress"],
+            "Tobii Technology": ["tbModel", "tbLicenseFile", "tbSerialNo", "tbSampleRate"],
+        }
+        for tracker in trackerParams:
+            for depParam in trackerParams[tracker]:
+                self.depends.append(
+                    {"dependsOn": "eyetracker",  # must be param name
+                     "condition": "=='"+tracker+"'",  # val to check for
+                     "param": depParam,  # param property to alter
+                     "true": "show",  # what to do with param if condition is True
+                     "false": "hide",  # permitted: hide, show, enable, disable
+                     }
+                )
+        self.depends.append(
+            {"dependsOn": "eyetracker",  # must be param name
+             "condition": f" in {list(trackerParams)}",  # val to check for
+             "param": "Save hdf5 file",  # param property to alter
+             "true": "enable",  # what to do with param if condition is True
+             "false": "disable",  # permitted: hide, show, enable, disable
+             }
+        )
+
+        self.params['eyetracker'] = Param(
+            eyetracker, valType='str', inputType="choice",
+            allowedVals=list(ioDeviceMap) + ["None"],
+            hint=_translate("What kind of eye tracker should PsychoPy use? Select 'MouseGaze' to use "
+                            "the mouse to simulate eye movement (for debugging without a tracker connected)"),
+            label=_translate("Eyetracker Device"), categ="Eyetracking"
+        )
+
+        #mousegaze
+        self.params['mgMove'] = Param(
+            mgMove, valType='str', inputType="choice",
+            allowedVals=['CONTINUOUS', 'LEFT_BUTTON', 'MIDDLE_BUTTON', 'RIGHT_BUTTON'],
+            hint=_translate("Mouse button to press for eye movement."),
+            label=_translate("Move Button"), categ="Eyetracking"
+        )
+
+        self.params['mgBlink'] = Param(
+            mgBlink, valType='list', inputType="multiChoice",
+            allowedVals=['LEFT_BUTTON', 'MIDDLE_BUTTON', 'RIGHT_BUTTON'],
+            hint=_translate("Mouse button to press for a blink."),
+            label=_translate("Blink Button"), categ="Eyetracking"
+        )
+
+        self.params['mgSaccade'] = Param(
+            mgSaccade, valType='num', inputType="single",
+            hint=_translate("Visual degree threshold for Saccade event creation."),
+            label=_translate("Saccade Threshold"), categ="Eyetracking"
+        )
+
+        # gazepoint
+        self.params['gpAddress'] = Param(
+            gpAddress, valType='str', inputType="single",
+            hint=_translate("IP Address of the computer running GazePoint Control."),
+            label=_translate("GazePoint IP Address"), categ="Eyetracking"
+        )
+
+        self.params['gpPort'] = Param(
+            gpPort, valType='num', inputType="single",
+            hint=_translate("Port of the GazePoint Control server. Usually 4242."),
+            label=_translate("GazePoint Port"), categ="Eyetracking"
+        )
+        # eyelink
+        self.params['elModel'] = Param(
+            elModel, valType='str', inputType="choice",
+            allowedVals=['EYELINK 1000 DESKTOP', 'EYELINK 1000 TOWER', 'EYELINK 1000 REMOTE',
+                         'EYELINK 1000 LONG RANGE'],
+            hint=_translate("Eye tracker model."),
+            label=_translate("Model Name"), categ="Eyetracking"
+        )
+
+        self.params['elSimMode'] = Param(
+            elSimMode, valType='bool', inputType="bool",
+            hint=_translate("Set the EyeLink to run in mouse simulation mode."),
+            label=_translate("Mouse Simulation Mode"), categ="Eyetracking"
+        )
+
+        self.params['elSampleRate'] = Param(
+            elSampleRate, valType='num', inputType="choice",
+            allowedVals=['250', '500', '1000', '2000'],
+            hint=_translate("Eye tracker sampling rate."),
+            label=_translate("Sampling Rate"), categ="Eyetracking"
+        )
+
+        self.params['elTrackEyes'] = Param(
+            elTrackEyes, valType='str', inputType="choice",
+            allowedVals=['LEFT_EYE', 'RIGHT_EYE', 'BOTH'],
+            hint=_translate("Select with eye(s) to track."),
+            label=_translate("Track Eyes"), categ="Eyetracking"
+        )
+
+        self.params['elLiveFiltering'] = Param(
+            elLiveFiltering, valType='str', inputType="choice",
+            allowedVals=['FILTER_LEVEL_OFF', 'FILTER_LEVEL_1', 'FILTER_LEVEL_2'],
+            hint=_translate("Filter eye sample data live, as it is streamed to the driving device. "
+                            "This may reduce the sampling speed."),
+            label=_translate("Live Sample Filtering"), categ="Eyetracking"
+        )
+
+        self.params['elDataFiltering'] = Param(
+            elDataFiltering, valType='str', inputType="choice",
+            allowedVals=['FILTER_LEVEL_OFF', 'FILTER_LEVEL_1', 'FILTER_LEVEL_2'],
+            hint=_translate("Filter eye sample data when it is saved to the output file. This will "
+                            "not affect the sampling speed."),
+            label=_translate("Saved Sample Filtering"), categ="Eyetracking"
+        )
+
+        self.params['elTrackingMode'] = Param(
+            elTrackingMode, valType='str', inputType="choice",
+            allowedVals=['PUPIL_CR_TRACKING', 'PUPIL_ONLY_TRACKING'],
+            hint=_translate("Track Pupil-CR or Pupil only."),
+            label=_translate("Pupil Tracking Mode"), categ="Eyetracking"
+        )
+
+        self.params['elPupilAlgorithm'] = Param(
+            elPupilAlgorithm, valType='str', inputType="choice",
+            allowedVals=['ELLIPSE_FIT', 'CENTROID_FIT'],
+            hint=_translate("Algorithm used to detect the pupil center."),
+            label=_translate("Pupil Center Algorithm"), categ="Eyetracking"
+        )
+
+        self.params['elPupilMeasure'] = Param(
+            elPupilMeasure, valType='str', inputType="choice",
+            allowedVals=['PUPIL_AREA', 'PUPIL_DIAMETER', 'NEITHER'],
+            hint=_translate("Type of pupil data to record."),
+            label=_translate("Pupil Data Type"), categ="Eyetracking"
+        )
+
+        self.params['elAddress'] = Param(
+            elAddress, valType='str', inputType="single",
+            hint=_translate("IP Address of the EyeLink *Host* computer."),
+            label=_translate("EyeLink IP Address"), categ="Eyetracking"
+        )
+
+        # tobii
+        self.params['tbModel'] = Param(
+            tbModel, valType='str', inputType="single",
+            hint=_translate("Eye tracker model."),
+            label=_translate("Model Name"), categ="Eyetracking"
+        )
+
+        self.params['tbLicenseFile'] = Param(
+            tbLicenseFile, valType='str', inputType="file",
+            hint=_translate("Eye tracker license file (optional)."),
+            label=_translate("License File"), categ="Eyetracking"
+        )
+
+        self.params['tbSerialNo'] = Param(
+            tbSerialNo, valType='str', inputType="single",
+            hint=_translate("Eye tracker serial number (optional)."),
+            label=_translate("Serial Number"), categ="Eyetracking"
+        )
+
+        self.params['tbSampleRate'] = Param(
+            tbSampleRate, valType='num', inputType="single",
+            hint=_translate("Eye tracker sampling rate."),
+            label=_translate("Sampling Rate"), categ="Eyetracking"
+        )
+
+    @property
+    def xml(self):
+        # Make root element
+        element = Element("Settings")
+        # Add an element for each parameter
+        for key, param in sorted(self.params.items()):
+            if key == 'name':
+                continue
+            # Create node
+            paramNode = param.xml
+            paramNode.set("name", key)
+            # Add node
+            element.append(paramNode)
+        return element
 
     def getInfo(self):
         """Rather than converting the value of params['Experiment Info']
@@ -462,6 +675,12 @@ class SettingsComponent(object):
             "    xlib.XInitThreads()\n"
             "\n")
 
+        if not self.params['eyetracker'] == "None":
+            code = (
+                "import psychopy.iohub as io\n"
+            )
+            buff.writeIndentedLines(code)
+
         # Write custom import statements, line by line.
         for import_ in customImports:
             importName = import_.importName
@@ -554,15 +773,22 @@ class SettingsComponent(object):
         # decide if we need anchored useVersion or leave plain
         useVer = self.params['Use version'].val
         if useVer == '':
-            useVer = '.'.join(version.split('.')[:2])
+            useVer = version
         elif useVer == 'latest':
-            useVer = '.'.join(latestVersion().split('.')[:2])
+            useVer = versions.latestVersion()
         else:
-            # do we shorten minor versions ('3.4.2' to '3.4')?
-            # only from 3.2 onwards
-            if (parse_version(useVer) > (parse_version('3.2'))
-                    and len(useVer.split('.'))>2):
-                useVer = '.'.join(useVer.split('.')[:2])
+            version = versions.fullVersion(useVer)
+
+        # do we shorten minor versions ('3.4.2' to '3.4')?
+        # only from 3.2 onwards
+        if (parse_version('3.2')) <= parse_version(useVer) < parse_version('2021') \
+                and len(useVer.split('.')) > 2:
+            # e.g. 2020.2 not 2021.2.5
+            useVer = '.'.join(useVer.split('.')[:2])
+        elif len(useVer.split('.')) > 3:
+            # e.g. 2021.1.0 not 2021.1.0.dev3
+            useVer = '.'.join(useVer.split('.')[:3])
+
         # prepend the hyphen
         versionStr = '-{}'.format(useVer)
 
@@ -596,26 +822,20 @@ class SettingsComponent(object):
         # Write imports if modular
         if modular:
             if self.params['Online system'].val == 'JATOS':
-                code = ("import {{ PsychoJS }} from './lib/core{version}.js';\n"
-                        "import * as core from './lib/core{version}.js';\n"
-                        "import {{ TrialHandler }} from './lib/data{version}.js';\n"
-                        "import {{ Scheduler }} from './lib/util{version}.js';\n"
-                        "import * as visual from './lib/visual{version}.js';\n"
-                        "import * as sound from './lib/sound{version}.js';\n"
-                        "import * as util from './lib/util{version}.js';\n"
+                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0.js';\n"
+                        "const {{ PsychoJS }} = core;\n"
+                        "const {{ TrialHandler }} = data;\n"
+                        "const {{ Scheduler }} = util;\n"
                         "import {{ ConsoleSubscriber }} from './lib/console-subscriber.js';\n"
                         "//some handy aliases as in the psychopy scripts;\n"
                         "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
                         "const {{ round }} = util;\n"
                         "\n").format(version=versionStr)
             else:
-                code = ("import {{ PsychoJS }} from './lib/core{version}.js';\n"
-                        "import * as core from './lib/core{version}.js';\n"
-                        "import {{ TrialHandler }} from './lib/data{version}.js';\n"
-                        "import {{ Scheduler }} from './lib/util{version}.js';\n"
-                        "import * as visual from './lib/visual{version}.js';\n"
-                        "import * as sound from './lib/sound{version}.js';\n"
-                        "import * as util from './lib/util{version}.js';\n"
+                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0.js';\n"
+                        "const {{ PsychoJS }} = core;\n"
+                        "const {{ TrialHandler }} = data;\n"
+                        "const {{ Scheduler }} = util;\n"
                         "//some handy aliases as in the psychopy scripts;\n"
                         "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
                         "const {{ round }} = util;\n"
@@ -777,6 +997,208 @@ class SettingsComponent(object):
 
         buff.writeIndented("frameTolerance = 0.001  # how close to onset before 'same' frame\n")
 
+    def writeIohubCode(self, buff):
+        # Substitute inits
+        inits = self.params.copy()
+        if inits['mgMove'].val == "CONTINUOUS":
+            inits['mgMove'].val = "$"
+
+        # Make ioConfig dict
+        code = (
+            "\n"
+            "# Setup eyetracking\n"
+        )
+        buff.writeIndentedLines(code % inits)
+        if self.params['eyetracker'] == "None":
+            code = (
+                "ioDevice = ioConfig = ioSession = ioServer = eyetracker = None\n"
+            )
+            buff.writeIndentedLines(code % inits)
+        else:
+            # Alert user if window is not fullscreen
+            if not self.params['Full-screen window'].val:
+                alert(code=4540)
+            # Alert user if no monitor config
+            if self.params['Monitor'].val in ["", None, "None"]:
+                alert(code=4545)
+            # Alert user if they need calibration and don't have it
+            if self.params['eyetracker'].val != "MouseGaze":
+                if not any(isinstance(rt, EyetrackerCalibrationRoutine)
+                           for rt in self.exp.flow):
+                    alert(code=4510, strFields={"eyetracker": self.params['eyetracker'].val})
+            # Write code
+            code = (
+                "ioDevice = '" + ioDeviceMap[self.params['eyetracker'].val] + "'\n"
+                "ioConfig = {\n"
+            )
+            buff.writeIndentedLines(code % inits)
+            buff.setIndentLevel(1, relative=True)
+            code = (
+                "ioDevice: {\n"
+            )
+            buff.writeIndentedLines(code % inits)
+            buff.setIndentLevel(1, relative=True)
+            code = (
+                    "'name': 'tracker',\n"
+            )
+            buff.writeIndentedLines(code % inits)
+            # Initialise for MouseGaze
+            if self.params['eyetracker'] == "MouseGaze":
+                code = (
+                        "'controls': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                            "'move': [%(mgMove)s],\n"
+                            "'blink':%(mgBlink)s,\n"
+                            "'saccade_threshold': %(mgSaccade)s,\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                        "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                    "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+
+            elif self.params['eyetracker'] == "GazePoint":
+                code = (
+                        "'network_settings': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                            "'ip_address': %(gpAddress)s,\n"
+                            "'port': %(gpPort)s\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                        "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                    "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+
+            elif self.params['eyetracker'] == "Tobii Technology":
+                code = (
+                        "'model_name': %(tbModel)s,\n"
+                        "'serial_number': %(tbSerialNo)s,\n"
+                        "'runtime_settings': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                            "'sampling_rate': %(tbSampleRate)s,\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                        "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                    "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+
+            elif self.params['eyetracker'] == "SR Research Ltd":
+                code = (
+                    "'model_name': %(elModel)s,\n"
+                    "'simulation_mode': %(elSimMode)s,\n"
+                    "'network_settings': %(elAddress)s,\n"
+                    "'default_native_data_file_name': 'EXPFILE',\n"
+                    "'runtime_settings': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                        "'sampling_rate': %(elSampleRate)s,\n"
+                        "'track_eyes': %(elTrackEyes)s,\n"
+                        "'sample_filtering': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                            "'sample_filtering': %(elDataFiltering)s,\n"
+                            "'elLiveFiltering': %(elLiveFiltering)s,\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                        "},\n"
+                        "'vog_settings': {\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(1, relative=True)
+                code = (
+                            "'pupil_measure_types': %(elPupilMeasure)s,\n"
+                            "'tracking_mode': %(elTrackingMode)s,\n"
+                            "'pupil_center_algorithm': %(elPupilAlgorithm)s,\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                        "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                    "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+                buff.setIndentLevel(-1, relative=True)
+                code = (
+                    "}\n"
+                )
+                buff.writeIndentedLines(code % inits)
+
+            # Close ioConfig dict
+            buff.setIndentLevel(-1, relative=True)
+            code = (
+                "}\n"
+            )
+            buff.writeIndentedLines(code % inits)
+
+            # Start iohub server
+            code = (
+                "ioSession = '1'\n"
+                "if 'session' in expInfo:\n"
+            )
+            buff.writeIndentedLines(code % inits)
+            buff.setIndentLevel(1, relative=True)
+            code = (
+                    "ioSession = str(expInfo['session'])\n"
+            )
+            buff.writeIndentedLines(code % inits)
+            buff.setIndentLevel(-1, relative=True)
+            if self.params['Save hdf5 file'].val:
+                saveStr = " experiment_code=%(expName)s, session_code=ioSession, datastore_name=filename,"
+            else:
+                saveStr = ""
+            code = (
+                f"ioServer = io.launchHubServer(window=win,{saveStr} **ioConfig)\n"
+                f"eyetracker = ioServer.getDevice('tracker')\n"
+            )
+            buff.writeIndentedLines(code % inits)
+
+        # Make default keyboard
+        code = (
+            "\n"
+            "# create a default keyboard (e.g. to check for escape)\n"
+            "defaultKeyboard = keyboard.Keyboard()\n"
+        )
+        buff.writeIndentedLines(code % self.params)
+
     def writeWindowCode(self, buff):
         """Setup the window code.
         """
@@ -843,9 +1265,7 @@ class SettingsComponent(object):
                 "if expInfo['frameRate'] != None:\n"
                 "    frameDur = 1.0 / round(expInfo['frameRate'])\n"
                 "else:\n"
-                "    frameDur = 1.0 / 60.0  # could not measure, so guess\n"
-                "\n# create a default keyboard (e.g. to check for escape)\n"
-                "defaultKeyboard = keyboard.Keyboard()")
+                "    frameDur = 1.0 / 60.0  # could not measure, so guess\n")
         buff.writeIndentedLines(code)
 
     def writeWindowCodeJS(self, buff):
@@ -897,7 +1317,7 @@ class SettingsComponent(object):
     def writeEndCodeJS(self, buff):
         endLoopInteration = ("\nfunction endLoopIteration(scheduler, snapshot) {\n"
                     "  // ------Prepare for next entry------\n"
-                    "  return function () {\n"
+                    "  return async function () {\n"
                     "    if (typeof snapshot !== 'undefined') {\n"
                     "      // ------Check if user ended loop early------\n"
                     "      if (snapshot.finished) {\n"
@@ -919,17 +1339,14 @@ class SettingsComponent(object):
         buff.writeIndentedLines(endLoopInteration)
 
         recordLoopIterationFunc = ("\nfunction importConditions(currentLoop) {\n"
-                    "  return function () {\n"
+                    "  return async function () {\n"
                     "    psychoJS.importAttributes(currentLoop.getCurrentTrial());\n"
                     "    return Scheduler.Event.NEXT;\n"
                     "    };\n"
                     "}\n")
         buff.writeIndentedLines(recordLoopIterationFunc)
 
-        if self.params['Online system'].val == 'JATOS':
-            code = ("\nasync function quitPsychoJS(message, isCompleted) {\n")
-        else:
-            code = ("\nfunction quitPsychoJS(message, isCompleted) {\n")
+        code = ("\nasync function quitPsychoJS(message, isCompleted) {\n")
         buff.writeIndented(code)
         buff.setIndentLevel(1, relative=True)
         code = ("// Check for and save orphaned data\n"

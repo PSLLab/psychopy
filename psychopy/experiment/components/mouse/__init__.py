@@ -2,28 +2,26 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
 from builtins import super  # provides Py3-style super() using python-future
 
 from os import path
+from pathlib import Path
 from psychopy.experiment.components import BaseComponent, Param, _translate
+from psychopy.localization import _localized as __localized
+_localized = __localized.copy()
 import re
 
-# the absolute path to the folder containing this path
-thisFolder = path.abspath(path.dirname(__file__))
-iconFile = path.join(thisFolder, 'mouse.png')
-tooltip = _translate('Mouse: query mouse position and buttons')
-
 # only use _localized values for label values, nothing functional:
-_localized = {'saveMouseState': _translate('Save mouse state'),
-              'forceEndRoutineOnPress': _translate('End Routine on press'),
-              'timeRelativeTo': _translate('Time relative to'),
-              'Clickable stimuli': _translate('Clickable stimuli'),
-              'Store params for clicked': _translate('Store params for clicked'),
-              'New clicks only': _translate('New clicks only')}
+_localized.update({'saveMouseState': _translate('Save mouse state'),
+                   'forceEndRoutineOnPress': _translate('End Routine on press'),
+                   'timeRelativeTo': _translate('Time relative to'),
+                   'Clickable stimuli': _translate('Clickable stimuli'),
+                   'Store params for clicked': _translate('Store params for clicked'),
+                   'New clicks only': _translate('New clicks only')})
 
 
 class MouseComponent(BaseComponent):
@@ -32,6 +30,8 @@ class MouseComponent(BaseComponent):
     """
     categories = ['Responses']
     targets = ['PsychoPy', 'PsychoJS']
+    iconFile = Path(__file__).parent / 'mouse.png'
+    tooltip = _translate('Mouse: query mouse position and buttons')
 
     def __init__(self, exp, parentName, name='mouse',
                  startType='time (s)', startVal=0.0,
@@ -46,14 +46,13 @@ class MouseComponent(BaseComponent):
             startEstim=startEstim, durationEstim=durationEstim)
 
         self.type = 'Mouse'
-        self.url = "http://www.psychopy.org/builder/components/mouse.html"
+        self.url = "https://www.psychopy.org/builder/components/mouse.html"
         self.exp.requirePsychopyLibs(['event'])
-        self.categories = ['Inputs']
 
         self.order += [
-            'forceEndRoutineOnPress',
-            'saveMouseState', 'timeRelativeTo',
-            'newClicksOnly', 'clickable', 'saveParamsClickable']
+            'forceEndRoutineOnPress',  # Basic tab
+            'saveMouseState', 'timeRelativeTo', 'newClicksOnly', 'clickable', 'saveParamsClickable',  # Data tab
+            ]
 
         # params
         msg = _translate(
@@ -61,7 +60,7 @@ class MouseComponent(BaseComponent):
             "On every video frame, every click or just at the end of the "
             "Routine?")
         self.params['saveMouseState'] = Param(
-            save, valType='str',
+            save, valType='str', inputType="choice", categ='Data',
             allowedVals=['final', 'on click', 'every frame', 'never'],
             hint=msg,
             label=_localized['saveMouseState'])
@@ -73,7 +72,7 @@ class MouseComponent(BaseComponent):
         elif forceEndRoutineOnPress is False:
             forceEndRoutineOnPress = 'never'
         self.params['forceEndRoutineOnPress'] = Param(
-            forceEndRoutineOnPress, valType='str',
+            forceEndRoutineOnPress, valType='str', inputType="choice", categ='Basic',
             allowedVals=['never', 'any click', 'valid click'],
             updates='constant',
             hint=msg,
@@ -82,28 +81,28 @@ class MouseComponent(BaseComponent):
         msg = _translate("What should the values of mouse.time should be "
                          "relative to?")
         self.params['timeRelativeTo'] = Param(
-            timeRelativeTo, valType='str',
+            timeRelativeTo, valType='str', inputType="choice", categ='Data',
             allowedVals=['mouse onset', 'experiment', 'routine'],
             updates='constant',
             hint=msg,
             label=_localized['timeRelativeTo'])
-
 
         msg = _translate('If the mouse button is already down when we start '
                          'checking then wait for it to be released before '
                          'recording as a new click.'
                          )
         self.params['newClicksOnly'] = Param(
-            True, valType='bool',
+            True, valType='bool', inputType="bool", categ='Basic',
             updates='constant',
             hint=msg,
             label=_localized['New clicks only'])
+
         msg = _translate('A comma-separated list of your stimulus names that '
                          'can be "clicked" by the participant. '
                          'e.g. target, foil'
                          )
         self.params['clickable'] = Param(
-            '', valType='code',
+            '', valType='list', inputType="single", categ='Basic',
             updates='constant',
             hint=msg,
             label=_localized['Clickable stimuli'])
@@ -114,11 +113,10 @@ class MouseComponent(BaseComponent):
                          'clickable objects have all these params.'
                          )
         self.params['saveParamsClickable'] = Param(
-            'name,', valType='code',
+            'name,', valType='list', inputType="single", categ='Data',
             updates='constant', allowedUpdates=[],
             hint=msg,
             label=_localized['Store params for clicked'])
-
 
     @property
     def _clickableParamsList(self):
@@ -132,7 +130,12 @@ class MouseComponent(BaseComponent):
         code = (
             "# check if the mouse was inside our 'clickable' objects\n"
             "gotValidClick = False\n"
-            "for obj in [%(clickable)s]:\n"
+            "try:\n"
+            "    iter(%(clickable)s)\n"
+            "    clickableList = %(clickable)s\n"
+            "except:\n"
+            "    clickableList = [%(clickable)s]\n"
+            "for obj in clickableList:\n"
             "    if obj.contains(%(name)s):\n"
             "        gotValidClick = True\n")
         buff.writeIndentedLines(code % self.params)

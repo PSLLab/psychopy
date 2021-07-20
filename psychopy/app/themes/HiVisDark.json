@@ -5,7 +5,7 @@
   "base": {
     "fg": "#F2F2F2",
     "bg": "#000000",
-    "font": ["Consolas", "Monaco", "Lucida Console"]
+    "font": "JetBrains Mono"
   },
   "margin": {
     "fg": "#F2F2F2",
@@ -125,12 +125,12 @@
   "documentation": {
     "fg": "#F1D302",
     "bg": "",
-    "font": ""
+    "font": "italic"
   },
   "documentation2": {
     "fg": "#F1D302",
     "bg": "",
-    "font": ""
+    "font": "italic"
   },
   "whitespace": {
     "fg": "#7C7C86",
@@ -144,6 +144,9 @@
 
   },
   "r": {
+
+  },
+  "json": {
 
   }
 }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Part of the psychopy.iohub library.
-# Copyright (C) 2012-2016 iSolver Software Solutions
+# Part of the PsychoPy library
+# Copyright (C) 2012-2020 iSolver Software Solutions (C) 2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 from __future__ import division, absolute_import, print_function
 
@@ -201,8 +201,9 @@ class Keyboard(ioHubDeviceView):
     KEY_PRESS = EventConstants.KEYBOARD_PRESS
     KEY_RELEASE = EventConstants.KEYBOARD_RELEASE
     _type2class = {KEY_PRESS: KeyboardPress, KEY_RELEASE: KeyboardRelease}
+
     def __init__(self, ioclient, dev_cls_name, dev_config):
-        super(Keyboard, self).__init__(ioclient, dev_cls_name, dev_config)
+        super(Keyboard, self).__init__(ioclient, 'client.Keyboard', dev_cls_name, dev_config)
         self._events = dict()
         self._reporting = self.isReportingEvents()
         self._pressed_keys = {}
@@ -228,18 +229,19 @@ class Keyboard(ioHubDeviceView):
 
         """
         kb_state = self.getCurrentDeviceState()
-        if not isinstance(kb_state,dict):
-            return
+
+        events = {int(k):v for k,v in list(kb_state.get('events').items())}
+        pressed_keys = {int(k):v for k,v in list(kb_state.get('pressed_keys',{}).items())}
+
         self._reporting = kb_state.get('reporting_events')
-        pressed_keys = kb_state.get('pressed_keys')
         self._pressed_keys.clear()
         akeyix = KeyboardEvent._attrib_index['key']
         iotimeix = DeviceEvent.EVENT_HUB_TIME_INDEX
 
-        for _, (key_array, _) in list(pressed_keys.items()):
+        for _, (key_array, _) in pressed_keys.items():
             self._pressed_keys[key_array[akeyix]] = key_array[iotimeix]
 
-        for etype, event_arrays in list(kb_state.get('events').items()):
+        for etype, event_arrays in events.items():
             ddeque = deque(maxlen=self._event_buffer_length)
             evts = [self._type2class[etype](e) for e in event_arrays]
             self._events.setdefault(etype, ddeque).extend(evts)

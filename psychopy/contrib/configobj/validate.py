@@ -129,9 +129,12 @@
 
     A badly formatted set of arguments will raise a ``VdtParamError``.
 """
+from past.builtins import unicode, basestring
+
 import re
 import sys
 from pprint import pprint
+from past.builtins import basestring
 
 __version__ = '1.0.1'
 

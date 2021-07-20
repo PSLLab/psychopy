@@ -1,10 +1,14 @@
 import ast
+import re
+
 from numpy import array
 from esprima import parseScript
 
 from psychopy.tools import monitorunittools
 from psychopy.alerts._alerts import alert
+from psychopy.visual.textbox2.fontmanager import FontManager
 
+fontMGR = FontManager()
 
 class TestWin(object):
     """
@@ -256,7 +260,36 @@ def testDisabled(component):
         return
 
     if component.params['disabled'].val:
-        alert(4305, component)
+        alert(4305, component, strFields={'name': component.params['name']})
+
+def testFont(component):
+    """
+    Tests whether font is stored locally or whether it needs to be retrieved from Google Fonts
+
+    Parameters
+    ----------
+    component: Component
+        The component used for testing
+    """
+    if 'font' in component.params:
+        fontInfo = fontMGR.getFontsMatching(component.params['font'].val, fallback=False)
+        if not fontInfo:
+            alert(4320, strFields={'param': component.params['font']})
+
+def testDollarSyntax(component):
+    """
+    Tests that use of dollar signs in Builder components to denote literal interpretation are used correctly
+
+    Parameters
+    ----------
+    component: Component
+        The component used for testing
+    """
+    valid = {}
+    for (key, param) in component.params.items():
+        if not param.dollarSyntax()[0]:
+            alert(4315, strFields={'component': component, 'param': param})
+    return valid
 
 def checkPythonSyntax(component, tab):
     """

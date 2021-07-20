@@ -31,7 +31,6 @@ if platform != 'darwin':
 import bdist_mpkg
 import py2app
 resources = glob.glob('psychopy/app/Resources/*')
-resources.append('/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7/pyconfig.h')
 frameworks = ["/usr/lib/libxml2.2.dylib", #"libyaml.dylib",
               "libevent.dylib", "libffi.dylib",
               "libmp3lame.0.dylib",
@@ -72,7 +71,8 @@ includes = ['Tkinter', 'tkFileDialog',
             ]
 packages = ['wx', 'psychopy',
             'pyglet', 'pytz', 'OpenGL', 'glfw',
-            'scipy', 'matplotlib', 'lxml', 'xml', 'openpyxl',
+            'scipy', 'matplotlib', 'openpyxl',
+            'xml', 'xmlschema', 'elementpath',
             'moviepy', 'imageio', 'imageio_ffmpeg',
             '_sounddevice_data', '_soundfile_data',
             'cffi', 'pycparser',
@@ -82,7 +82,6 @@ packages = ['wx', 'psychopy',
             'pkg_resources',  # needed for objc
             'pyolib', 'pyo',
             'requests', 'certifi', 'cryptography',
-            'pyosf',
             # for unit testing
             'coverage',
             # handy external science libs
@@ -105,9 +104,11 @@ packages = ['wx', 'psychopy',
             'badapted', 'darc_toolbox',  # adaptive methods from Ben Vincent
             'questplus',
             'metapensiero.pj', 'dukpy', 'macropy',
-            'jedi','parso',
+            'jedi', 'parso',
             'psychtoolbox',
             'freetype', 'h5py',
+            'markdown_it',
+            'speech_recognition', 'googleapiclient', 'pocketsphinx',
             ]
 
 if sys.version_info.major >= 3:

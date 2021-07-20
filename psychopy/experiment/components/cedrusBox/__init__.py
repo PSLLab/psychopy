@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, print_function
@@ -10,23 +10,19 @@ from __future__ import absolute_import, print_function
 from builtins import str
 from past.builtins import basestring
 from os import path
+from pathlib import Path
 
 from psychopy.constants import PY3
 from psychopy.experiment.components import Param, _translate
 from psychopy.experiment.components.keyboard import KeyboardComponent
 from psychopy.experiment import CodeGenerationException, valid_var_re
-
+from psychopy.localization import _localized as __localized
+_localized = __localized.copy()
 __author__ = 'Jon Peirce'
 
-# abs path to the folder containing this path
-thisFolder = path.abspath(path.dirname(__file__))
-iconFile = path.join(thisFolder, 'cedrusBox.png')
-tooltip = _translate('Cedrus Button Box: Cedrus response boxes, using the '
-                     'pyxid library provided by Cedrus')
-
 # only use _localized values for label values, nothing functional:
-_localized = {'deviceNumber': _translate('Device number'),
-              'useBoxTimer': _translate("Use box timer")}
+_localized.update({'deviceNumber': _translate('Device number'),
+                   'useBoxTimer': _translate("Use box timer")})
 
 
 class cedrusButtonBoxComponent(KeyboardComponent):
@@ -42,6 +38,9 @@ class cedrusButtonBoxComponent(KeyboardComponent):
     """
     categories = ['Responses']  # which section(s) in the components panel
     targets = ['PsychoPy']
+    iconFile = Path(__file__).parent / 'cedrusBox.png'
+    tooltip = _translate('Cedrus Button Box: Cedrus response boxes, using the '
+                         'pyxid library provided by Cedrus')
 
     def __init__(self, exp, parentName, name='buttonBox',
                  store='first key',
@@ -61,7 +60,10 @@ class cedrusButtonBoxComponent(KeyboardComponent):
             startEstim=startEstim, durationEstim=durationEstim)
 
         self.type = 'cedrusButtonBox'
-        self.url = "http://www.psychopy.org/builder/components/cedrusButtonBox.html"
+        self.url = "https://www.psychopy.org/builder/components/cedrusButtonBox.html"
+        self.order += ['forceEndRoutine',  # Basic tab
+                       'allowedKeys', 'store', 'storeCorrect', 'correctAns'  # Data tab
+                       ]
 
         self.exp.requirePsychopyLibs(['hardware'])
 
@@ -80,10 +82,10 @@ class cedrusButtonBoxComponent(KeyboardComponent):
         msg = _translate('Device number, if you have multiple devices which'
                          ' one do you want (0, 1, 2...)')
         self.params['deviceNumber'] = Param(
-            deviceNumber, valType='code', allowedTypes=[],
+            deviceNumber, valType='int', inputType="spin", allowedTypes=[], categ='Hardware',
             updates='constant', allowedUpdates=[],
             hint=msg,
-            label=_localized['deviceNumber'], categ='Advanced')
+            label=_localized['deviceNumber'])
 
         # self.params['getReleaseTime'] = Param(getReleaseTime,
         #    valType='bool', allowedVals=[True, False],
@@ -95,10 +97,10 @@ class cedrusButtonBoxComponent(KeyboardComponent):
         msg = _translate('According to Cedrus the response box timer has '
                          'a drift - use with caution!')
         self.params['useBoxTimer'] = Param(
-            getReleaseTime, valType='bool', allowedVals=[True, False],
+            getReleaseTime, valType='bool', inputType="bool", allowedVals=[True, False], categ='Hardware',
             updates='constant', allowedUpdates=[],
             hint=msg,
-            label=_localized['useBoxTimer'], categ='Advanced')
+            label=_localized['useBoxTimer'])
 
     def writeRunOnceInitCode(self, buff):
         code = ("try:  # to use the Cedrus response box\n"

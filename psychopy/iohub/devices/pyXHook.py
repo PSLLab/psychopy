@@ -242,9 +242,12 @@ class HookManager(threading.Thread):
         self._running = False
         self.local_dpy.record_disable_context(self.ctx)
         self.local_dpy.flush()
-        self._xlib.XCloseDisplay(self._xdisplay)
-        self._xlib = None
-
+        try:
+            self._xlib.XCloseDisplay(self._xdisplay)
+            self._xlib = None
+        except AttributeError:
+            pass
+        
     def printevent(self, event):
         print2err(event)
 
@@ -388,9 +391,14 @@ class HookManager(threading.Thread):
         # Get key value
         keysym = _xlib.XKeycodeToKeysym(self._xdisplay, keycode, 0)
         key = _xlib.XKeysymToString(keysym)
+        if isinstance(key, bytes):
+            key = key.decode('utf-8')
+        if isinstance(char, bytes):
+            char = char.decode('utf-8')
+            
         if key:
             key = key.lower()
-            if key and key.startswith(b'kp_'):
+            if key and key.startswith('kp_'):
                 key = 'num_%s' % (key[3:])
             elif key in key_mappings:
                 key = key_mappings[key]
@@ -407,7 +415,6 @@ class HookManager(threading.Thread):
                     key = key.encode('utf-8')
         else:
             key = ''
-
         return keycode, keysym, key, char
 
     def makekeyhookevent(self, event):
@@ -434,7 +441,6 @@ class HookManager(threading.Thread):
         if mod_mask & 16 == 16:
             # numlock is active:
             modifier_key_state += ModifierKeyCodes.numlock
-
         for pk in pressed_keys:
             if pk not in ['capslock', 'numlock']:
                 is_mod_id = ModifierKeyCodes.getID(pk)

@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
+import glob
 import json
-
+import errno
 from psychopy.app.themes._themes import ThemeSwitcher
 
-from ..themes import ThemeMixin
+from ..themes import ThemeMixin, IconCache
 
 import wx
 from wx.lib import platebtn
@@ -23,7 +24,7 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 
 from psychopy import experiment
-from psychopy.app.utils import PsychopyPlateBtn, PsychopyToolbar, FrameSwitcher
+from psychopy.app.utils import PsychopyPlateBtn, PsychopyToolbar, FrameSwitcher, FileDropTarget
 from psychopy.constants import PY3
 from psychopy.localization import _translate
 from psychopy.app.stdOutRich import StdOutRich
@@ -66,6 +67,8 @@ class RunnerFrame(wx.Frame, ThemeMixin):
         self.runnerMenu = wx.MenuBar()
         self.makeMenu()
         self.SetMenuBar(self.runnerMenu)
+        # Link to file drop function
+        self.SetDropTarget(FileDropTarget(targetFrame=self))
 
         # create icon
         if sys.platform != 'darwin':
@@ -111,6 +114,7 @@ class RunnerFrame(wx.Frame, ThemeMixin):
         fileMenu = wx.Menu()
         viewMenu = wx.Menu()
         runMenu = wx.Menu()
+        demosMenu = wx.Menu()
 
         # Menu items
         fileMenuItems = [
@@ -160,10 +164,22 @@ class RunnerFrame(wx.Frame, ThemeMixin):
              'func': self.panel.runOnline},
             ]
 
+        demosMenuItems = [
+            {'id': wx.ID_ANY,
+             'label': _translate("Builder Demos"),
+             'status': _translate("Loading builder demos"),
+             'func': self.loadBuilderDemos},
+            {'id': wx.ID_ANY,
+             'label': _translate("Coder Demos"),
+             'status': _translate("Loading coder demos"),
+             'func': self.loadCoderDemos},
+        ]
+
         menus = [
             {'menu': fileMenu, 'menuItems': fileMenuItems, 'separators': ['clear all', 'load list']},
             {'menu': viewMenu, 'menuItems': viewMenuItems, 'separators': []},
             {'menu': runMenu, 'menuItems': runMenuItems, 'separators': []},
+            {'menu': demosMenu, 'menuItems': demosMenuItems, 'separators': []},
         ]
 
         # Add items to menus
@@ -184,6 +200,7 @@ class RunnerFrame(wx.Frame, ThemeMixin):
         self.runnerMenu.Append(fileMenu, _translate('File'))
         self.runnerMenu.Append(viewMenu, _translate('View'))
         self.runnerMenu.Append(runMenu, _translate('Run'))
+        self.runnerMenu.Append(demosMenu, _translate('Demos'))
         self.runnerMenu.Append(self.windowMenu, _translate('Window'))
 
     def onURL(self, evt):
@@ -312,6 +329,65 @@ class RunnerFrame(wx.Frame, ThemeMixin):
     def showRunner(self):
         self.app.showRunner()
 
+    def loadBuilderDemos(self, event):
+        """Load Builder demos"""
+        self.panel.expCtrl.DeleteAllItems()
+        unpacked = self.app.prefs.builder['unpackedDemosDir']
+        if not unpacked:
+            return
+        # list available demos
+        demoList = sorted(glob.glob(os.path.join(unpacked, '*')))
+        demos = {wx.NewIdRef(): demoList[n]
+                 for n in range(len(demoList))}
+        for thisID in demos:
+            junk, shortname = os.path.split(demos[thisID])
+            if (shortname.startswith('_') or
+                    shortname.lower().startswith('readme.')):
+                continue  # ignore 'private' or README files
+            for file in os.listdir(demos[thisID]):
+                if file.endswith('.psyexp'):
+                    self.addTask(fileName=os.path.join(demos[thisID], file))
+
+    def loadCoderDemos(self, event):
+        """Load Coder demos"""
+        self.panel.expCtrl.DeleteAllItems()
+        _localized = {'basic': _translate('basic'),
+                      'input': _translate('input'),
+                      'stimuli': _translate('stimuli'),
+                      'experiment control': _translate('exp control'),
+                      'iohub': 'ioHub',  # no translation
+                      'hardware': _translate('hardware'),
+                      'timing': _translate('timing'),
+                      'misc': _translate('misc')}
+        folders = glob.glob(os.path.join(self.paths['demos'], 'coder', '*'))
+        for folder in folders:
+            # if it isn't a folder then skip it
+            if (not os.path.isdir(folder)):
+                continue
+            # otherwise create a submenu
+            folderDisplayName = os.path.split(folder)[-1]
+            if folderDisplayName.startswith('_'):
+                continue  # don't include private folders
+            if folderDisplayName in _localized:
+                folderDisplayName = _localized[folderDisplayName]
+
+            # find the files in the folder (search two levels deep)
+            demoList = glob.glob(os.path.join(folder, '*.py'))
+            demoList += glob.glob(os.path.join(folder, '*', '*.py'))
+            demoList += glob.glob(os.path.join(folder, '*', '*', '*.py'))
+
+            demoList.sort()
+
+            for thisFile in demoList:
+                shortname = thisFile.split(os.path.sep)[-1]
+                if shortname == "run.py":
+                    # file is just "run" so get shortname from directory name
+                    # instead
+                    shortname = thisFile.split(os.path.sep)[-2]
+                elif shortname.startswith('_'):
+                    continue  # remove any 'private' files
+                self.addTask(fileName=thisFile)
+
     @property
     def taskList(self):
         """
@@ -330,6 +406,64 @@ class RunnerFrame(wx.Frame, ThemeMixin):
 
 
 class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
+
+    class SizerButton(wx.ToggleButton):
+        """Button to show/hide a category of components"""
+
+        def __init__(self, parent, label, sizer):
+            # Initialise button
+            wx.ToggleButton.__init__(self, parent,
+                                     label="   " + label, size=(-1, 24),
+                                     style=wx.BORDER_NONE | wx.BU_LEFT)
+            self.parent = parent
+            # Link to category of buttons
+            self.menu = sizer
+            # Default states to false
+            self.state = False
+            self.hover = False
+            # Bind toggle function
+            self.Bind(wx.EVT_TOGGLEBUTTON, self.ToggleMenu)
+            # Bind hover functions
+            self.Bind(wx.EVT_ENTER_WINDOW, self.hoverOn)
+            self.Bind(wx.EVT_LEAVE_WINDOW, self.hoverOff)
+
+        def ToggleMenu(self, event):
+            # If triggered manually with a bool, treat that as a substitute for event selection
+            if isinstance(event, bool):
+                state = event
+            else:
+                state = event.GetSelection()
+            self.SetValue(state)
+            # Show / hide contents according to state
+            self.menu.Show(state)
+            # Do layout
+            self.parent.Layout()
+            # Restyle
+            self._applyAppTheme()
+
+        def hoverOn(self, event):
+            """Apply hover effect"""
+            self.hover = True
+            self._applyAppTheme()
+
+        def hoverOff(self, event):
+            """Unapply hover effect"""
+            self.hover = False
+            self._applyAppTheme()
+
+        def _applyAppTheme(self):
+            """Apply app theme to this button"""
+            if self.hover:
+                # If hovered over currently, use hover colours
+                self.SetForegroundColour(ThemeMixin.appColors['txtbutton_fg_hover'])
+                # self.icon.SetForegroundColour(ThemeMixin.appColors['txtbutton_fg_hover'])
+                self.SetBackgroundColour(ThemeMixin.appColors['txtbutton_bg_hover'])
+            else:
+                # Otherwise, use regular colours
+                self.SetForegroundColour(ThemeMixin.appColors['text'])
+                # self.icon.SetForegroundColour(ThemeMixin.appColors['text'])
+                self.SetBackgroundColour(ThemeMixin.appColors['panel_bg'])
+
     def __init__(self, parent=None, id=wx.ID_ANY, title='', app=None):
         super(RunnerPanel, self).__init__(parent=parent,
                                           id=id,
@@ -340,8 +474,6 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
                                           )
         ScriptProcess.__init__(self, app)
         self.Bind(wx.EVT_END_PROCESS, self.onProcessEnded)
-        #self.SetBackgroundColour(ThemeMixin.appColors['frame_bg'])
-        #self.SetForegroundColour(ThemeMixin.appColors['txt_default'])
 
         # double buffered better rendering except if retina
         self.SetDoubleBuffered(parent.IsDoubleBuffered())
@@ -380,28 +512,19 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
         _style = platebtn.PB_STYLE_DROPARROW | platebtn.PB_STYLE_SQUARE
         # Alerts
         self._selectedHiddenAlerts = False  # has user manually hidden alerts?
-        self.alertsToggleBtn = PsychopyPlateBtn(self, -1, _translate('Alerts'),
-                                          style=_style, name='Alerts')
-        # mouse event must be bound like this
-        self.alertsToggleBtn.Bind(wx.EVT_LEFT_DOWN, self.setAlertsVisible)
-        # mouse event must be bound like this
-        self.alertsToggleBtn.Bind(wx.EVT_RIGHT_DOWN, self.setAlertsVisible)
+
         self.alertsCtrl = StdOutText(parent=self,
                                      size=ctrlSize,
                                      style=wx.TE_READONLY | wx.TE_MULTILINE | wx.BORDER_NONE)
+        self.alertsToggleBtn = self.SizerButton(self, _translate("Alerts"), self.alertsCtrl)
 
         self.setAlertsVisible(True)
 
         # StdOut
-        self.stdoutToggleBtn = PsychopyPlateBtn(self, -1, _translate('Stdout'),
-                                          style=_style, name='Stdout')
-        # mouse event must be bound like this
-        self.stdoutToggleBtn.Bind(wx.EVT_LEFT_DOWN, self.setStdoutVisible)
-        # mouse event must be bound like this
-        self.stdoutToggleBtn.Bind(wx.EVT_RIGHT_DOWN, self.setStdoutVisible)
         self.stdoutCtrl = StdOutText(parent=self,
                                      size=ctrlSize,
                                      style=wx.TE_READONLY | wx.TE_MULTILINE | wx.BORDER_NONE)
+        self.stdoutToggleBtn = self.SizerButton(self, _translate("Stdout"), self.stdoutCtrl)
         self.setStdoutVisible(True)
 
         # Box sizers
@@ -432,10 +555,17 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
             if btn.Window:
                 btn = btn.Window
                 btn.SetBackgroundColour(ThemeMixin.appColors['panel_bg'])
+        # Add icons to buttons
+        bmp = IconCache.getBitmap(IconCache(), "stdout.png")
+        self.stdoutToggleBtn.SetBitmap(bmp)
+        self.stdoutToggleBtn.SetBitmapMargins(x=6, y=0)
+        bmp = IconCache.getBitmap(IconCache(), "alerts.png")
+        self.alertsToggleBtn.SetBitmap(bmp)
+        self.alertsToggleBtn.SetBitmapMargins(x=6, y=0)
 
     def makeButtons(self):
         # Set buttons
-        icons = self.app.iconCache  # type: IconCache
+        icons = self.app.iconCache
         self.plusBtn = icons.makeBitmapButton(
                 parent=self,
                 filename='addExp.png',
@@ -610,6 +740,7 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
                                    stderr=PIPE,
                                    shell=False,
                                    universal_newlines=True,
+
                                    )
 
         time.sleep(.1)  # Wait for subprocess to start server
@@ -626,20 +757,23 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
 
         Useful for debugging, amending scripts.
         """
-        libPath = str(self.currentFile.parent / self.outputPath / 'lib')
-        ver = '.'.join(self.app.version.split('.')[:2])
+        libPath = self.currentFile.parent / self.outputPath / 'lib'
+        ver = '.'.join(self.app.version.split('.')[:3])
         psychoJSLibs = ['core', 'data', 'util', 'visual', 'sound']
 
-        os.path.exists(libPath) or os.makedirs(libPath)
-
-        if len(sorted(Path(libPath).glob('*.js'))) >= len(psychoJSLibs):  # PsychoJS lib files exist
-            print("##### PsychoJS lib already exists in {} #####\n".format(libPath))
-            return
+        try:  # ask-for-forgiveness rather than query-then-make
+            os.makedirs(libPath)
+        except OSError as e:
+            if e.errno != errno.EEXIST:  # we only want to ignore "exists", not others like permissions
+                raise  # raises the error again
 
         for lib in psychoJSLibs:
+            finalPath = libPath / ("{}-{}.js".format(lib, ver))
+            if finalPath.exists():
+                continue
             url = "https://lib.pavlovia.org/{}-{}.js".format(lib, ver)
             req = requests.get(url)
-            with open(libPath + "/{}-{}.js".format(lib, ver), 'wb') as f:
+            with open(finalPath, 'wb') as f:
                 f.write(req.content)
 
         print("##### PsychoJS libs downloaded to {} #####\n".format(libPath))
@@ -754,7 +888,7 @@ class RunnerPanel(wx.Panel, ScriptProcess, ThemeMixin):
         else:
             nAlerts = 0
         # update labels and text accordingly
-        self.alertsToggleBtn.SetLabelText(_translate("Alerts ({})").format(nAlerts))
+        self.alertsToggleBtn.SetLabelText("   " + _translate("Alerts ({})").format(nAlerts))
         sys.stdout.flush()
         sys.stdout = sys.stderr = prev
         if nAlerts == 0:

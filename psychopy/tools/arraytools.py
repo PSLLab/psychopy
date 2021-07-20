@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Functions and classes related to array handling
@@ -149,12 +149,11 @@ def shuffleArray(inArray, shuffleAxis=-1, seed=None):
     """
     # arrAsList = shuffle(list(inArray))
     # return numpy.array(arrAsList)
-    if seed is not None:
-        numpy.random.seed(seed)
+    rng = numpy.random.default_rng(seed=seed)
 
     inArray = numpy.array(inArray, 'O')  # convert to array if necess
     # create a random array of the same shape
-    rndArray = numpy.random.random(inArray.shape)
+    rndArray = rng.random(inArray.shape)
     # and get the arguments that would sort it
     newIndices = numpy.argsort(rndArray, shuffleAxis)
     # return the array with the sorted random indices

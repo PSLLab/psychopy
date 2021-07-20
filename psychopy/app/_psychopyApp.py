@@ -2,19 +2,21 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
 
 from builtins import str
 from builtins import object
+from pathlib import Path
+
+from psychopy.app.colorpicker import PsychoColorPicker
 
 profiling = False  # turning on will save profile files in currDir
 
 import sys
 import argparse
-import platform
 import psychopy
 from psychopy import prefs
 from pkg_resources import parse_version
@@ -22,10 +24,9 @@ from psychopy.constants import PY3
 from . import urls
 from . import frametracker
 from . import themes
-from . import icons
+from . import console
 
 import io
-import json
 
 if not hasattr(sys, 'frozen'):
     try:
@@ -66,7 +67,6 @@ if not PY3 and sys.platform == 'darwin':
 else:
     blockTips = False
 
-travisCI = bool(str(os.environ.get('TRAVIS')).lower() == 'true')
 
 # Enable high-dpi support if on Windows. This fixes blurry text rendering.
 if sys.platform == 'win32':
@@ -91,7 +91,7 @@ class MenuFrame(wx.Frame, themes.ThemeMixin):
     """A simple empty frame with a menubar, should be last frame closed on mac
     """
 
-    def __init__(self, parent=None, ID=-1, app=None, title="PsychoPy3"):
+    def __init__(self, parent=None, ID=-1, app=None, title="PsychoPy"):
 
         wx.Frame.__init__(self, parent, ID, title, size=(1, 1))
         self.app = app
@@ -152,9 +152,9 @@ class _Showgui_Hack(object):
         if not os.path.isfile(noopPath):
             code = """from psychopy import gui
                 dlg = gui.Dlg().Show()  # non-blocking
-                try: 
+                try:
                     dlg.Destroy()  # might as well
-                except Exception: 
+                except Exception:
                     pass"""
             with open(noopPath, 'wb') as fd:
                 fd.write(bytes(code))
@@ -163,6 +163,7 @@ class _Showgui_Hack(object):
 
 
 class PsychoPyApp(wx.App, themes.ThemeMixin):
+    _called_from_test = False  # pytest needs to change this
 
     def __init__(self, arg=0, testMode=False, **kwargs):
         """With a wx.App some things get done here, before App.__init__
@@ -218,17 +219,18 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         self.locale = localization.setLocaleWX()
         self.locale.AddCatalog(self.GetAppName())
 
-        # set the exception hook to present unhandled errors in a dialog
-        if not travisCI:
-            from psychopy.app.errorDlg import exceptionCallback
-            sys.excepthook = exceptionCallback
-
+        logging.flush()
         self.onInit(testMode=testMode, **kwargs)
         if profiling:
             profile.disable()
             print("time to load app = {:.2f}".format(time.time()-t0))
             profile.dump_stats('profileLaunchApp.profile')
+        logging.flush()
 
+        # set the exception hook to present unhandled errors in a dialog
+        if not PsychoPyApp._called_from_test:  #NB class variable not self
+            from psychopy.app.errorDlg import exceptionCallback
+            sys.excepthook = exceptionCallback
 
     def onInit(self, showSplash=True, testMode=False):
         """This is launched immediately *after* the app initialises with wx
@@ -237,7 +239,6 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
           testMode: bool
         """
         self.SetAppName('PsychoPy3')
-
         if showSplash: #showSplash:
             # show splash screen
             splashFile = os.path.join(
@@ -250,7 +251,7 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
                                        )  # transparency?
             w, h = splashImage.GetSize()
             splash.SetTextPosition((int(340), h-30))
-            splash.SetText(_translate("Copyright (C) 2020 OpenScienceTools.org"))
+            splash.SetText(_translate("Copyright (C) 2021 OpenScienceTools.org"))
         else:
             splash = None
 
@@ -292,23 +293,46 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
 
         self.dpi = int(wx.GetDisplaySize()[0] /
                        float(wx.GetDisplaySizeMM()[0]) * 25.4)
+        # detect retina displays
+        self.isRetina = self.dpi>80 and wx.Platform == '__WXMAC__'
+        if self.isRetina:
+            fontScale = 1.2  # fonts are looking tiny on macos (only retina?) right now
+        else:
+            fontScale = 1
+        # adjust dpi to something reasonable
         if not (50 < self.dpi < 120):
             self.dpi = 80  # dpi was unreasonable, make one up
 
+        # Manage fonts
         if sys.platform == 'win32':
             # wx.SYS_DEFAULT_GUI_FONT is default GUI font in Win32
             self._mainFont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         else:
             self._mainFont = wx.SystemSettings.GetFont(wx.SYS_ANSI_FIXED_FONT)
+            # rescale for tiny retina fonts
 
-        try:
-            self._codeFont = wx.SystemSettings.GetFont(wx.SYS_ANSI_FIXED_FONT)
-        except wx._core.wxAssertionError:
-            # if no SYS_ANSI_FIXED_FONT then try generic FONTFAMILY_MODERN
-            self._codeFont = wx.Font(self._mainFont.GetPointSize(),
-                                     wx.FONTFAMILY_MODERN,
-                                     wx.FONTSTYLE_NORMAL,
-                                     wx.FONTWEIGHT_NORMAL)
+        if hasattr(wx.Font, "AddPrivateFont") and sys.platform != "darwin":
+            # Load packaged fonts if possible
+            for fontFile in (Path(__file__).parent / "Resources" / "fonts").glob("*"):
+                if fontFile.suffix in ['.ttf', '.truetype']:
+                    wx.Font.AddPrivateFont(str(fontFile))
+            # Set fonts as those loaded
+            self._codeFont = wx.Font(wx.FontInfo(self._mainFont.GetPointSize()).FaceName("JetBrains Mono"))
+        else:
+            # Get system defaults if can't load fonts
+            try:
+                self._codeFont = wx.SystemSettings.GetFont(wx.SYS_ANSI_FIXED_FONT)
+            except wx._core.wxAssertionError:
+                # if no SYS_ANSI_FIXED_FONT then try generic FONTFAMILY_MODERN
+                self._codeFont = wx.Font(self._mainFont.GetPointSize(),
+                                         wx.FONTFAMILY_TELETYPE,
+                                         wx.FONTSTYLE_NORMAL,
+                                         wx.FONTWEIGHT_NORMAL)
+
+        if self.isRetina:
+            self._codeFont.SetPointSize(int(self._codeFont.GetPointSize()*fontScale))
+            self._mainFont.SetPointSize(int(self._mainFont.GetPointSize()*fontScale))
+
         # that gets most of the properties of _codeFont but the FaceName
         # FaceName is set in the setting of the theme:
         self.theme = self.prefs.app['theme']
@@ -334,8 +358,8 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         parser.add_argument('-c', dest='coder', action="store_true")
         parser.add_argument('--runner', dest='runner', action="store_true")
         parser.add_argument('-r', dest='runner', action="store_true")
+        parser.add_argument('-x', dest='direct', action='store_true')
         view, args = parser.parse_known_args(sys.argv)
-        print(args)
         # Check from filetype if any windows need to be open
         if any(arg.endswith('.psyexp') for arg in args):
             view.builder = True
@@ -352,6 +376,10 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
                 view.coder = True
                 view.runner = True
 
+        # set the dispatcher for standard output
+        self.stdStreamDispatcher = console.StdStreamDispatcher(self)
+        self.stdStreamDispatcher.redirect()
+
         # Create windows
         if view.runner:
             self.showRunner(fileList=runlist)
@@ -359,6 +387,10 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
             self.showCoder(fileList=scripts)
         if view.builder:
             self.showBuilder(fileList=exps)
+        if view.direct:
+            self.showRunner()
+            for exp in [file for file in args if file.endswith('.psyexp') or file.endswith('.py')]:
+                self.runner.panel.runFile(exp)
 
         # send anonymous info to www.psychopy.org/usage.php
         # please don't disable this, it's important for PsychoPy's development
@@ -400,7 +432,7 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         # wx-windows on some platforms (Mac 10.9.4) with wx-3.0:
         v = parse_version
         if sys.platform == 'darwin':
-            if v('3.0') <= v(wx.version()) <v('4.0'):
+            if v('3.0') <= v(wx.version()) < v('4.0'):
                 _Showgui_Hack()  # returns ~immediately, no display
                 # focus stays in never-land, so bring back to the app:
                 if prefs.app['defaultView'] in ['all', 'builder', 'coder', 'runner']:
@@ -420,6 +452,11 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
             logging.console.setLevel(logging.INFO)
 
         return True
+
+    @property
+    def appLoaded(self):
+        """`True` if the app has been fully loaded (`bool`)."""
+        return self._appLoaded
 
     def _wizard(self, selector, arg=''):
         from psychopy import core
@@ -529,7 +566,7 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         # have to reimport because it is only local to __init__ so far
         from . import coder
         if self.coder is None:
-            title = "PsychoPy3 Coder (IDE) (v%s)"
+            title = "PsychoPy Coder (IDE) (v%s)"
             wx.BeginBusyCursor()
             self.coder = coder.CoderFrame(None, -1,
                                           title=title % self.version,
@@ -547,7 +584,7 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         # have to reimport because it is ony local to __init__ so far
         wx.BeginBusyCursor()
         from .builder.builder import BuilderFrame
-        title = "PsychoPy3 Experiment Builder (v%s)"
+        title = "PsychoPy Builder (v%s)"
         self.builder = BuilderFrame(None, -1,
                                  title=title % self.version,
                                  fileName=fileName, app=self)
@@ -582,13 +619,12 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
             self.SetTopWindow(self.runner)
         # Runner captures standard streams until program closed
         if self.runner and not self.testMode:
-            sys.stdout = self.runner.stdOut
-            sys.stderr = self.runner.stdOut
+            sys.stderr = sys.stdout = self.stdStreamDispatcher
 
     def newRunnerFrame(self, event=None):
         # have to reimport because it is only local to __init__ so far
         from .runner.runner import RunnerFrame
-        title = "PsychoPy3 Experiment Runner (v{})".format(self.version)
+        title = "PsychoPy Runner (v{})".format(self.version)
         wx.BeginBusyCursor()
         self.runner = RunnerFrame(parent=None,
                              id=-1,
@@ -638,37 +674,21 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         Note: units are psychopy -1..+1 rgb units to three decimal places,
         preserving 24-bit color.
         """
-        class ColorPicker(wx.Panel):
+        if self.coder is None:
+            return
 
-            def __init__(self, parent):
-                wx.Panel.__init__(self, parent, wx.ID_ANY)
-                rgb = 'None'
-                dlg = wx.ColourDialog(self)
-                dlg.GetColourData().SetChooseFull(True)
-                if dlg.ShowModal() == wx.ID_OK:
-                    data = dlg.GetColourData()
-                    rgb = data.GetColour().Get(includeAlpha=False)
-                    rgb = map(lambda x: "%.3f" %
-                              ((x - 127.5) / 127.5), list(rgb))
-                    rgb = '[' + ','.join(rgb) + ']'
-                    # http://wiki.wxpython.org/AnotherTutorial#wx.TheClipboard
-                    if wx.TheClipboard.Open():
-                        wx.TheClipboard.Clear()
-                        wx.TheClipboard.SetData(wx.TextDataObject(str(rgb)))
-                        wx.TheClipboard.Close()
-                dlg.Destroy()
-                parent.newRBG = rgb
-        frame = wx.Frame(None, wx.ID_ANY, "Color picker",
-                         size=(0, 0))  # not shown
-        ColorPicker(frame)
-        newRBG = frame.newRBG
-        frame.Destroy()
-        return newRBG  # string
+        document = self.coder.currentDoc
+        dlg = PsychoColorPicker(document)  # doesn't need a parent
+        dlg.ShowModal()
+        dlg.Destroy()
+
+        if event is not None:
+            event.Skip()
 
     def openMonitorCenter(self, event):
         from psychopy.monitors import MonitorCenter
         self.monCenter = MonitorCenter.MainFrame(
-            None, 'PsychoPy3 Monitor Center')
+            None, 'PsychoPy Monitor Center')
         self.monCenter.Show(True)
 
     def terminateHubProcess(self):
@@ -752,7 +772,7 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
                 self.prefs.saveAppData()
             except Exception:
                 pass  # we don't care if this fails - we're quitting anyway
-        self.Destroy()
+        #self.Destroy()
 
         # Reset streams back to default
         sys.stdout = sys.__stdout__
@@ -771,12 +791,12 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
     def showAbout(self, event):
         logging.debug('PsychoPyApp: Showing about dlg')
 
-        with io.open(os.path.join(self.prefs.paths['psychopy'],'LICENSE.txt'),
+        with io.open(os.path.join(self.prefs.paths['psychopy'], 'LICENSE.txt'),
                      'r', encoding='utf-8-sig') as f:
             license = f.read()
 
         msg = _translate(
-            "For stimulus generation and experimental control in python.\n"
+            "For stimulus generation and experimental control in Python.\n"
             "PsychoPy depends on your feedback. If something doesn't work\n"
             "then let us know at psychopy-users@googlegroups.com")
         if parse_version(wx.__version__) >= parse_version('4.0a1'):
@@ -792,22 +812,59 @@ class PsychoPyApp(wx.App, themes.ThemeMixin):
         info.SetVersion('v' + psychopy.__version__)
         info.SetDescription(msg)
 
-        info.SetCopyright('(C) 2002-2018 Jonathan Peirce')
-        info.SetWebSite('http://www.psychopy.org')
+        info.SetCopyright('(C) 2002-2021 Jonathan Peirce')
+        info.SetWebSite('https://www.psychopy.org')
         info.SetLicence(license)
-        info.AddDeveloper('Jonathan Peirce')
-        info.AddDeveloper('Jeremy Gray')
-        info.AddDeveloper('Sol Simpson')
-        info.AddDeveloper(u'Jonas Lindel\xF8v')
-        info.AddDeveloper('Yaroslav Halchenko')
-        info.AddDeveloper('Erik Kastman')
-        info.AddDeveloper('Michael MacAskill')
-        info.AddDeveloper('Hiroyuki Sogo')
-        info.AddDeveloper('David Bridges')
-        info.AddDocWriter('Jonathan Peirce')
-        info.AddDocWriter('Jeremy Gray')
-        info.AddDocWriter('Rebecca Sharman')
-        info.AddTranslator('Hiroyuki Sogo')
+        # developers
+
+        devNames = [
+            'Jonathan Peirce',
+            'Jeremy Gray',
+            'Michael MacAskill',
+            'Sol Simpson',
+            u'Jonas Lindel\xF8v',
+            'Yaroslav Halchenko',
+            'Erik Kastman',
+            'Hiroyuki Sogo',
+            'David Bridges',
+            'Matthew Cutone',
+            'Philipp Wiesemann',
+            u'Richard Höchenberger',
+            'Andrew Schofield',
+            'Todd Parsons',
+            'Dan Fitch',
+            'Suddha Sourav',
+            'Philipp Wiesemann',
+            'Mark Hymers',
+            'Benjamin T. Vincent',
+            'Yaroslav Halchenko',
+            'Jay Borseth',
+            'chrisgatwin [@github.com]',
+            'toddrjen [@github.com]'
+        ]
+
+        docNames = [
+            'Jonathan Peirce',
+            'Jeremy Gray',
+            'Rebecca Hirst',
+            'Rebecca Sharman',
+            'Matthew Cutone'
+        ]
+        devNames.sort()
+
+        intNames = [
+            'Hiroyuki Sogo'
+        ]
+        intNames.sort()
+
+        for name in devNames:
+            info.AddDeveloper(name)
+
+        for name in docNames:
+            info.AddDocWriter(name)
+
+        for name in intNames:
+            info.AddTranslator(name)
 
         if not self.testMode:
             showAbout(info)

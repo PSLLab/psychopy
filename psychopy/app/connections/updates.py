@@ -2,16 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from __future__ import absolute_import, division, print_function
+from past.builtins import unicode
 
 from builtins import object
 import sys
 import re
 import glob
+import time
 import zipfile
+import platform
 import os
 from pkg_resources import parse_version
 import wx
@@ -33,7 +36,7 @@ else:
     import StringIO as io
 urllib = web.urllib
 
-versionURL = "http://www.psychopy.org/version.txt"
+versionURL = "https://www.psychopy.org/version.txt"
 
 """The Updater class checks for updates and suggests that an update is carried
 out if a new version is found. The actual updating is handled by
@@ -313,9 +316,14 @@ class InstallUpdateDialog(wx.Dialog):
         self.cancelBtn = wx.Button(self, -1, _translate('Close'))
         self.Bind(wx.EVT_BUTTON, self.onCancel, self.cancelBtn)
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        btnSizer.Add(self.installBtn)
-        btnSizer.Add(self.cancelBtn, flag= wx.LEFT, border=5)
-        mainSizer.Add(btnSizer, flag= wx.ALL, border=5)
+        btnSizer.AddStretchSpacer()
+        if sys.platform == "win32":
+            btns = [self.installBtn, self.cancelBtn]
+        else:
+            btns = [self.cancelBtn, self.installBtn]
+        btnSizer.Add(btns[0], 0, flag=wx.LEFT, border=5)
+        btnSizer.Add(btns[1], 0, flag=wx.LEFT, border=5)
+        mainSizer.Add(btnSizer, flag=wx.ALL | wx.EXPAND, border=5)
 
         self.SetSizerAndFit(mainSizer)
         self.SetAutoLayout(True)
@@ -329,11 +337,14 @@ class InstallUpdateDialog(wx.Dialog):
         """Check the current version and most recent version and update ctrls
         """
         if self.latest == -1:
+            # Set message and display, and return early if version could not be found
             msg = _translate(
                 "You are running PsychoPy v%s.\n ") % self.runningVersion
             msg += _translate("PsychoPy could not connect to the \n internet"
                               " to check for more recent versions.\n")
             msg += _translate("Check proxy settings in preferences.")
+            self.statusMessage.SetLabel(msg)
+            return
         elif (parse_version(self.latest['version'])
                   < parse_version(self.runningVersion)):
             msg = _translate(
@@ -450,7 +461,7 @@ class InstallUpdateDialog(wx.Dialog):
             # zfile is filename not an actual file
             if v is None:  # try and deduce it
                 zFilename = os.path.split(zfile)[-1]
-                searchName = re.search('[0-9]*\.[0-9]*\.[0-9]*.', zFilename)
+                searchName = re.search(r'[0-9]*\.[0-9]*\.[0-9]*.', zFilename)
                 if searchName != None:
                     v = searchName.group(0)[:-1]
                 else:
@@ -629,7 +640,7 @@ def sendUsageStats():
         systemInfo = "win32_v" + platform.version()
     else:
         systemInfo = platform.system() + platform.release()
-    u = "http://www.psychopy.org/usage.php?date=%s&sys=%s&version=%s&misc=%s"
+    u = "https://www.psychopy.org/usage.php?date=%s&sys=%s&version=%s&misc=%s"
     URL = u % (dateNow, systemInfo, v, miscInfo)
     try:
         req = urllib.request.Request(URL)

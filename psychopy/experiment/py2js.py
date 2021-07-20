@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2020 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Converting code parameters and components from python (PsychoPy)
@@ -94,7 +94,6 @@ def expression2js(expr):
             logging.error(err)
             return
 
-
     for node in ast.walk(syntaxTree):
         TupleTransformer().visit(node)  # Transform tuples to list
         # for py2 using 'unicode_literals' we don't want
@@ -116,6 +115,7 @@ def expression2js(expr):
             # If translation fails, just use old translation
             pass
     return jsStr
+
 
 def snippet2js(expr):
     """Convert several lines (e.g. a Code Component) Python to JS"""
