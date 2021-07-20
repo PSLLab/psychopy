@@ -120,7 +120,7 @@ class ParamCtrls(object):
             # Create single line string control
             self.valueCtrl = paramCtrls.SingleLineCtrl(parent,
                                                    val=str(param.val), valType=param.valType,
-                                                   fieldName=fieldName,size=wx.Size(self.valueWidth, 24))
+                                                   fieldName=fieldName,size=wx.Size(self.valueWidth, 32))
         elif param.inputType == 'multi':
             # Create multiline string control
             self.valueCtrl = paramCtrls.MultiLineCtrl(parent,
@@ -142,7 +142,7 @@ class ParamCtrls(object):
         elif param.inputType == 'choice':
             self.valueCtrl = paramCtrls.ChoiceCtrl(parent,
                                                    val=str(param.val), valType=param.valType, choices=param.allowedVals,
-                                                   fieldName=fieldName, size=wx.Size(self.valueWidth, 24))
+                                                   fieldName=fieldName, size=wx.Size(self.valueWidth, 34))
         elif param.inputType == 'multiChoice':
             self.valueCtrl = paramCtrls.MultiChoiceCtrl(parent, valType=param.valType,
                                                         vals=param.val, choices=param.allowedVals, fieldName=fieldName,
@@ -154,7 +154,7 @@ class ParamCtrls(object):
         elif param.inputType == 'file' or browse:
             self.valueCtrl = paramCtrls.FileCtrl(parent,
                                                  val=str(param.val), valType=param.valType,
-                                                 fieldName=fieldName, size=wx.Size(self.valueWidth, 24))
+                                                 fieldName=fieldName, size=wx.Size(self.valueWidth, 28))
             self.valueCtrl.allowedVals = param.allowedVals
         elif param.inputType == 'fileList':
             self.valueCtrl = paramCtrls.FileListCtrl(parent,
@@ -627,7 +627,7 @@ class ParamNotebook(wx.Notebook, ThemeMixin):
 
         The new data from the dlg get inserted back into the original params
         used in __init__ and are also returned from this method.
-        
+
         .. note::
             Don't use GetStringSelection() here to avoid that translated value
             is returned. Instead, use GetSelection() to get index of selection
@@ -1492,7 +1492,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                 self.conditionsFile = self.conditionsFileOrig
                 self.conditions = self.conditionsOrig
                 return  # no update or display changes
-            
+
             # check for Builder variables
             builderVariables = []
             for condName in self.condNamesInFile:
@@ -1509,7 +1509,7 @@ class DlgLoopProperties(_BaseParamsDlg):
                 self.conditionsFile = self.conditionsFileOrig
                 self.conditions = self.conditionsOrig
                 return  # no update or display changes
-            
+
             duplCondNames = []
             if len(self.condNamesInFile):
                 for condName in self.condNamesInFile:

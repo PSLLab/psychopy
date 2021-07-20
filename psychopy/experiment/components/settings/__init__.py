@@ -148,11 +148,11 @@ class SettingsComponent(object):
         # params
         self.params = {}
         self.depends = []
-        self.order = ['expName', 'Use version', 'Show info dlg', 'Enable Escape',  'Experiment info',  # Basic tab
+        self.order = ['expName', 'Use version', 'Show info dlg', 'Enable Escape',  'Escape Key to Use', 'Experiment info',  # Basic tab
                       'Data filename', 'Data file delimiter', 'Save excel file', 'Save csv file', 'Save wide csv file',
                       'Save psydat file', 'Save hdf5 file', 'Save log file', 'logging level',  # Data tab
                       'Audio lib', 'Audio latency priority', "Force stereo",  # Audio tab
-                      'HTML path', 'exportHTML', 'Completed URL', 'Incomplete URL', 'Resources',  # Online tab
+                      'HTML path', 'exportHTML', 'Completed URL', 'Incomplete URL', 'Online system', 'Participant source', 'Resources',  # Online tab
                       'Monitor', 'Screen', 'Full-screen window', 'Window size (pixels)', 'Units', 'color',
                       'colorSpace',  # Screen tab
                       ]
@@ -174,7 +174,7 @@ class SettingsComponent(object):
                             " / break out of the experiment"),
             label=_localized["Enable Escape"])
         self.params['Escape Key to Use'] = Param(
-            escapeKey, valType='str', allowedTypes=[],
+            escapeKey, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which key to use to terminate experiment early"),
             allowedVals=['escape', 'f12'],
             label=_localized["Escape Key to Use"])
@@ -327,12 +327,12 @@ class SettingsComponent(object):
             hint=_translate("Place the HTML files will be saved locally "),
             label="Output path", categ='Online')
         self.params['Online system'] = Param(
-            onlineSystem, valType='str', allowedTypes=[],
+            onlineSystem, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which online system to use for data collection"),
             allowedVals=['JATOS', 'Pavlovia'],
             label=_localized["Online system"], categ='Online')
         self.params['Participant source'] = Param(
-            participantSource, valType='str', allowedTypes=[],
+            participantSource, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which online system will be used to recruit participants"),
             allowedVals=['PRP', 'Prolific'],
             label=_localized["Participant source"], categ='Online')
