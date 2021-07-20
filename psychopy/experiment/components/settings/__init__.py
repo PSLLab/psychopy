@@ -822,7 +822,7 @@ class SettingsComponent(object):
         # Write imports if modular
         if modular:
             if self.params['Online system'].val == 'JATOS':
-                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0.js';\n"
+                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0+1.js';\n"
                         "const {{ PsychoJS }} = core;\n"
                         "const {{ TrialHandler }} = data;\n"
                         "const {{ Scheduler }} = util;\n"
@@ -842,8 +842,6 @@ class SettingsComponent(object):
                         "\n").format(version=versionStr)
             buff.writeIndentedLines(code)
 
-        # Write window code
-        self.writeWindowCodeJS(buff)
         if self.params['Online system'].val == 'JATOS':
             code = ("\n// store info about the experiment session:\n"
                     "let expName = '%s';  // from the Builder filename that created this script\n"
