@@ -259,15 +259,27 @@ class Flow(list):
                     "}*/\n")
             script.writeIndentedLines(code)
 
-        code = ("// schedule the experiment:\n"
-                "psychoJS.schedule(psychoJS.gui.DlgFromDict({\n"
-                "  dictionary: expInfo,\n"
-                "  title: expName\n}));\n"
-                "\n"
-                "const flowScheduler = new Scheduler(psychoJS);\n"
-                "const dialogCancelScheduler = new Scheduler(psychoJS);\n"
-                "psychoJS.scheduleCondition(function() { return (psychoJS.gui.dialogComponent.button === 'OK'); }, flowScheduler, dialogCancelScheduler);\n"
-                "\n")
+        if self.exp.settings.params['Online system'].val == 'JATOS':
+            code = ("// schedule the experiment:\n"
+                    "psychoJS.schedule(psychoJS.gui.DlgFromDict({\n"
+                    "  dictionary: expInfo,\n"
+                    "  title: 'Starting up',\n"
+                    "  text: 'Downloading and starting up this part of the experiment.<br>The OK button will be enabled once everything is downloaded.<br>Press OK to proceed.'}));\n"
+                    "\n"
+                    "const flowScheduler = new Scheduler(psychoJS);\n"
+                    "const dialogCancelScheduler = new Scheduler(psychoJS);\n"
+                    "psychoJS.scheduleCondition(function() { return (psychoJS.gui.dialogComponent.button === 'OK'); }, flowScheduler, dialogCancelScheduler);\n"
+                    "\n")
+        else:
+            code = ("// schedule the experiment:\n"
+                    "psychoJS.schedule(psychoJS.gui.DlgFromDict({\n"
+                    "  dictionary: expInfo,\n"
+                    "  title: expName\n}));\n"
+                    "\n"
+                    "const flowScheduler = new Scheduler(psychoJS);\n"
+                    "const dialogCancelScheduler = new Scheduler(psychoJS);\n"
+                    "psychoJS.scheduleCondition(function() { return (psychoJS.gui.dialogComponent.button === 'OK'); }, flowScheduler, dialogCancelScheduler);\n"
+                    "\n")
         script.writeIndentedLines(code)
 
         code = ("// flowScheduler gets run if the participants presses OK\n"
@@ -309,10 +321,28 @@ class Flow(list):
             resourceFolderStr = "resources/"
         else:
             resourceFolderStr = ""
-        script.writeIndented("psychoJS.start({\n")
-        script.setIndentLevel(1, relative=True)
-        script.writeIndentedLines("expName: expName,\n"
-                                  "expInfo: expInfo,\n")
+        if self.exp.settings.params['Online system'].val == 'JATOS':
+            code = ("jatos.onLoad(async function() {\n"
+            "  util.addAbortButton({ text: 'End Study',\n"
+            "                        confirmText: 'Do you really want to leave?\\nYou will get credit only for the portion you completed.' },\n"
+            "                      quitPsychoJS);\n"
+            "  let callback = (category, args) => {\n"
+            "    let message = category + ': ' + JSON.stringify(args);\n"
+            "    psychoJS._logger._consoleLogs.push(message);\n"
+            "  };\n"
+            "  ConsoleSubscriber.bind(callback);\n"
+            "  await psychoJS.window.adjustScreenSize();\n")
+            script.writeIndented(code)
+            script.setIndentLevel(1, relative=True)
+            script.writeIndented("psychoJS.start({\n")
+            script.setIndentLevel(1, relative=True)
+            script.writeIndentedLines("expName: expName,\n"
+                                      "expInfo: expInfo,\n")
+        else:
+            script.writeIndented("psychoJS.start({\n")
+            script.setIndentLevel(1, relative=True)
+            script.writeIndentedLines("expName: expName,\n"
+                                      "expInfo: expInfo,\n")
         # if we have an html folder then we moved files there so just use that
         # if not, then we'll need to list all known resource files
         if not self.exp.htmlFolder:
@@ -328,7 +358,25 @@ class Flow(list):
             script.setIndentLevel(-1, relative=True)
             script.writeIndented("]\n")
             script.setIndentLevel(-1, relative=True)
-        script.writeIndented("});\n\n")
+        if self.exp.settings.params['Online system'].val == 'JATOS':
+            script.writeIndentedLines("resources: [\n")
+            script.setIndentLevel(1, relative=True)
+            code = ""
+            for idx, resource in enumerate(resourceFiles):
+                temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
+                code += temp
+                if idx != (len(resourceFiles)-1):
+                    code += ",\n"  # Trailing comma
+            script.writeIndentedLines(code)
+            script.setIndentLevel(-1, relative=True)
+            script.writeIndented("]\n")
+            script.setIndentLevel(-1, relative=True)
+            script.setIndentLevel(-1, relative=True)
+            script.writeIndented("});\n")
+            script.setIndentLevel(-1, relative=True)
+            script.writeIndented("});\n\n")
+        else:
+            script.writeIndented("});\n\n")
 
     def writeLoopHandlerJS(self, script, modular):
         """

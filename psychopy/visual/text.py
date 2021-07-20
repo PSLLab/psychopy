@@ -280,6 +280,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
                                           dpi=72, italic=self.italic,
                                           bold=self.bold)
             self.__dict__['font'] = font
+            if self._pygletTextObj is not None:
+                self._pygletTextObj.font = self._font
         else:
             if font is None or len(font) == 0:
                 self.__dict__['font'] = pygame.font.get_default_font()
@@ -377,18 +379,21 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """Set the text to be rendered using the current font
         """
         if self.win.winType in ["pyglet", "glfw"]:
-            rgba255 = self._foreColor.rgba255
-            rgba255[3] = rgba255[3]*255
-            rgba255 = [int(c) for c in rgba255]
-            self._pygletTextObj = pyglet.text.Label(
-                self.text, self.font, int(self._heightPix*0.75),
-                italic=self.italic,
-                bold=self.bold,
-                anchor_x=self.anchorHoriz,
-                anchor_y=self.anchorVert,  # the point we rotate around
-                align=self.alignText,
-                color=rgba255,
-                multiline=True, width=self._wrapWidthPix)  # width of the frame
+            if self._pygletTextObj is None:
+                rgba255 = self._foreColor.rgba255
+                rgba255[3] = rgba255[3]*255
+                rgba255 = [int(c) for c in rgba255]
+                self._pygletTextObj = pyglet.text.Label(
+                    self.text, self.font, int(self._heightPix*0.75),
+                    italic=self.italic,
+                    bold=self.bold,
+                    anchor_x=self.anchorHoriz,
+                    anchor_y=self.anchorVert,  # the point we rotate around
+                    align=self.alignText,
+                    color=rgba255,
+                    multiline=True, width=self._wrapWidthPix)  # width of the frame
+            else:
+                self._pygletTextObj.text = self.text
             self.width = self._pygletTextObj.width
             self._fontHeightPix = self._pygletTextObj.height
         else:
@@ -617,6 +622,15 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self._needUpdate = False
 
     @attributeSetter
+    def opacity(self, value):
+        BaseVisualStim.opacity.func(self, value)
+        self._setTextShaders()
+
+    def setOpacity(self, newOpacity, operation='', log=None):
+        BaseVisualStim.setOpacity(self, newOpacity, operation='', log=None)
+        self._setTextShaders()
+
+    @attributeSetter
     def flipHoriz(self, value):
         """If set to True then the text will be flipped left-to-right.  The
         flip is relative to the original, not relative to the current state.
@@ -685,6 +699,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """Deprecated in PsychoPy 3.3. Use `anchorVert`
         """
         self.__dict__['alignVert'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.valign = self.alignVert
         self._needSetText = True
 
     @attributeSetter
@@ -746,6 +762,8 @@ class TextStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self._wrapWidthPix = convertToPix(pos=numpy.array([0, 0]),
                                           vertices=verts,
                                           units=self.units, win=self.win)[0]
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.width = self._wrapWidthPix
         self._needSetText = True
 
     @property

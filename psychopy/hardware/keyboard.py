@@ -175,8 +175,20 @@ class Keyboard:
                 self._ids = [-1]  # no indexing possible so get the combo keyboard
             else:
                 allInds, allNames, allKBs = hid.get_keyboard_indices()
-                if device == -1:
-                    self._ids = allInds
+                if device==-1:
+                    num_kbs = 0
+                    # hackec this together because polling multiple fake keyboards in Linux
+                    # led to dropped frames
+                    # linnux PCs had 4 keyboards including the power button
+                    for kindex, name in enumerate(allNames):
+                        if 'keyboard' in name.lower() and 'virtual' not in name.lower():
+                            num_kbs += 1
+                            if num_kbs == 1:
+                                self._ids = [allInds[kindex]]
+                            else:
+                                raise Exception('found more than one real keyboard')
+                    if num_kbs == 0:
+                        raise Exception('did not find any keyboards')
                 elif type(device) in [list, tuple]:
                     self._ids = device
                 else:
@@ -284,9 +296,9 @@ class Keyboard:
 
     def waitKeys(self, maxWait=float('inf'), keyList=None, waitRelease=True,
                  clear=True):
-        """Same as `~psychopy.hardware.keyboard.Keyboard.getKeys`, 
+        """Same as `~psychopy.hardware.keyboard.Keyboard.getKeys`,
         but halts everything (including drawing) while awaiting keyboard input.
-    
+
         :Parameters:
             maxWait : any numeric value.
                 Maximum number of seconds period and which keys to wait for.
@@ -306,9 +318,9 @@ class Keyboard:
             clear : **True** or False
                 Whether to clear the keyboard event buffer (and discard preceding
                 keypresses) before starting to monitor for new keypresses.
-    
+
         Returns None if times out.
-    
+
         """
         timer = psychopy.core.Clock()
 

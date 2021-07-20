@@ -92,11 +92,12 @@ class _FileMixin:
         inList = dlg.GetPaths()
         outList = []
         for file in inList:
-            try:
-                filename = Path(file).relative_to(self.rootDir)
-            except ValueError:
-                filename = Path(file).absolute()
-            outList.append(str(filename))
+            if os.path.basename(file) != '.DS_Store':
+                try:
+                    filename = Path(file).relative_to(self.rootDir)
+                except ValueError:
+                    filename = Path(file).absolute()
+                outList.append(str(filename))
         return outList
 
 
@@ -284,9 +285,11 @@ class FileListCtrl(wx.ListBox, _ValidatorMixin, _HideMixin, _FileMixin):
         self.addBtn.Bind(wx.EVT_BUTTON, self.addItem)
         self.subBtn = wx.Button(parent, -1, size=(24,24), style=wx.BU_EXACTFIT, label="-")
         self.subBtn.Bind(wx.EVT_BUTTON, self.removeItem)
+        self.addDirBtn = wx.Button(parent, -1, style=wx.BU_EXACTFIT, label="+dir")
+        self.addDirBtn.Bind(wx.EVT_BUTTON, self.addDir)
         self._szr = wx.BoxSizer(wx.HORIZONTAL)
         self.btns = wx.BoxSizer(wx.VERTICAL)
-        self.btns.AddMany((self.addBtn, self.subBtn))
+        self.btns.AddMany((self.addBtn, self.subBtn, self.addDirBtn))
         self._szr.Add(self, proportion=1, flag=wx.EXPAND)
         self._szr.Add(self.btns)
 
@@ -305,6 +308,23 @@ class FileListCtrl(wx.ListBox, _ValidatorMixin, _HideMixin, _FileMixin):
         if fileList:
             self.InsertItems(fileList, 0)
 
+    def addDir(self, event):
+        dlg = wx.DirDialog(self, message=_translate("Choose directories ..."),
+                            style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+        if dlg.ShowModal() != wx.ID_OK:
+            return 0
+        dirname = dlg.GetPath()
+        relPaths = []
+        folder = self.rootDir
+        fileList = [os.path.join(dp, f) for dp, dn, filenames in os.walk(dirname) for f in filenames if os.path.isfile(os.path.join(dp, f))]
+        # raise Exception('temp {}'.format(fileList))
+        for filename in fileList:
+            if os.path.basename(filename) != '.DS_Store':
+                relPaths.append(
+                    os.path.relpath(filename, folder))
+        self.InsertItems(relPaths, 0)
+        self.SetItems(list(set(self.GetItems())))
+
     def removeItem(self, event):
         i = self.GetSelections()
         if isinstance(i, int):
@@ -315,7 +335,6 @@ class FileListCtrl(wx.ListBox, _ValidatorMixin, _HideMixin, _FileMixin):
 
     def GetValue(self):
         return self.Items
-
 
 class TableCtrl(wx.TextCtrl, _ValidatorMixin, _HideMixin, _FileMixin):
     def __init__(self, parent, valType,
