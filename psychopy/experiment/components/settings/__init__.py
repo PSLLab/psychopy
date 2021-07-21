@@ -826,7 +826,6 @@ class SettingsComponent(object):
                         "const {{ PsychoJS }} = core;\n"
                         "const {{ TrialHandler }} = data;\n"
                         "const {{ Scheduler }} = util;\n"
-                        "import {{ ConsoleSubscriber }} from './lib/console-subscriber.js';\n"
                         "//some handy aliases as in the psychopy scripts;\n"
                         "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
                         "const {{ round }} = util;\n"

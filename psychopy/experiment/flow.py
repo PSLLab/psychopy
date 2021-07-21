@@ -330,7 +330,7 @@ class Flow(list):
             "    let message = category + ': ' + JSON.stringify(args);\n"
             "    psychoJS._logger._consoleLogs.push(message);\n"
             "  };\n"
-            "  ConsoleSubscriber.bind(callback);\n"
+            "  core.ConsoleSubscriber.bind(callback);\n"
             "  await psychoJS.window.adjustScreenSize();\n")
             script.writeIndented(code)
             script.setIndentLevel(1, relative=True)
