@@ -50,7 +50,6 @@ class _ValidatorMixin():
             # Name is never code
             valType = "str"
         if valType == "code" or hasattr(self, "dollarLbl"):
-            # Set font
             self.SetFont(self.GetTopLevelParent().app._codeFont.Bold())
         else:
             self.SetFont(self.GetTopLevelParent().app._mainFont)
@@ -157,7 +156,7 @@ class SingleLineCtrl(wx.TextCtrl, _ValidatorMixin, _HideMixin):
             self.dollarLbl.Show(value)
 
 
-class MultiLineCtrl(SingleLineCtrl, _ValidatorMixin, _HideMixin):
+class MultiLineCtrl(SingleLineCtrl):
     def __init__(self, parent, valType,
                  val="", fieldName="",
                  size=wx.Size(-1, 144)):
@@ -540,7 +539,8 @@ def validate(obj, valType):
         obj.showValid(valid)
 
     # Update code font
-    obj.updateCodeFont(valType)
+    if val != '':
+        obj.updateCodeFont(valType)
 
 
 class DictCtrl(ListWidget, _ValidatorMixin, _HideMixin):

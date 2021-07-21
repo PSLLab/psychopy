@@ -120,7 +120,7 @@ class ParamCtrls(object):
             # Create single line string control
             self.valueCtrl = paramCtrls.SingleLineCtrl(parent,
                                                    val=str(param.val), valType=param.valType,
-                                                   fieldName=fieldName,size=wx.Size(self.valueWidth, 32))
+                                                   fieldName=fieldName,size=wx.Size(self.valueWidth, 34))
         elif param.inputType == 'multi':
             # Create multiline string control
             self.valueCtrl = paramCtrls.MultiLineCtrl(parent,
@@ -399,7 +399,7 @@ class StartStopCtrls(wx.GridBagSizer):
         for name, param in params.items():
             if name in ['startVal', 'stopVal']:
                 self.ctrls[name] = wx.TextCtrl(parent,
-                                               value=str(param.val), size=wx.Size(-1, 24))
+                                               value=str(param.val), size=wx.Size(-1, 34))
                 self.ctrls[name].Bind(wx.EVT_TEXT, self.updateCodeFont)
                 self.updateCodeFont(self.ctrls[name])
                 self.label = wx.StaticText(parent, label=param.label)
@@ -408,17 +408,17 @@ class StartStopCtrls(wx.GridBagSizer):
                 localizedChoices = list(map(_translate, param.allowedVals or [param.val]))
                 self.ctrls[name] = wx.Choice(parent,
                                              choices=localizedChoices,
-                                             size=wx.Size(96, 24))
+                                             size=wx.Size(96, 34))
                 self.ctrls[name]._choices = copy.copy(param.allowedVals)
                 self.ctrls[name].SetSelection(param.allowedVals.index(str(param.val)))
                 self.Add(self.ctrls[name], (0, 0), border=6, flag=wx.EXPAND | wx.TOP)
             if name in ['startEstim', 'durationEstim']:
                 self.ctrls[name] = wx.TextCtrl(parent,
-                                               value=str(param.val), size=wx.Size(-1, 24))
+                                               value=str(param.val), size=wx.Size(-1, 34))
                 self.ctrls[name].Bind(wx.EVT_TEXT, self.updateCodeFont)
                 self.updateCodeFont(self.ctrls[name])
                 self.estimLabel = wx.StaticText(parent,
-                                                label=param.label, size=wx.Size(-1, 24))
+                                                label=param.label, size=wx.Size(-1, 34))
                 self.estimLabel.SetForegroundColour("grey")
                 self.Add(self.estimLabel, (1, 0), border=6, flag=wx.EXPAND | wx.ALL)
                 self.Add(self.ctrls[name], (1, 1), border=6, flag=wx.EXPAND | wx.TOP | wx.BOTTOM)
