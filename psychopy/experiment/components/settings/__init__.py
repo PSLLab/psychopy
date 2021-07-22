@@ -821,24 +821,14 @@ class SettingsComponent(object):
 
         # Write imports if modular
         if modular:
-            if self.params['Online system'].val == 'JATOS':
-                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0+1.js';\n"
-                        "const {{ PsychoJS }} = core;\n"
-                        "const {{ TrialHandler }} = data;\n"
-                        "const {{ Scheduler }} = util;\n"
-                        "//some handy aliases as in the psychopy scripts;\n"
-                        "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
-                        "const {{ round }} = util;\n"
-                        "\n").format(version=versionStr)
-            else:
-                code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs-2021.2.0.js';\n"
-                        "const {{ PsychoJS }} = core;\n"
-                        "const {{ TrialHandler }} = data;\n"
-                        "const {{ Scheduler }} = util;\n"
-                        "//some handy aliases as in the psychopy scripts;\n"
-                        "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
-                        "const {{ round }} = util;\n"
-                        "\n").format(version=versionStr)
+            code = ("import {{ core, data, sound, util, visual }} from './lib/psychojs{version}.js';\n"
+                    "const {{ PsychoJS }} = core;\n"
+                    "const {{ TrialHandler }} = data;\n"
+                    "const {{ Scheduler }} = util;\n"
+                    "//some handy aliases as in the psychopy scripts;\n"
+                    "const {{ abs, sin, cos, PI: pi, sqrt }} = Math;\n"
+                    "const {{ round }} = util;\n"
+                    "\n").format(version=versionStr)
             buff.writeIndentedLines(code)
 
         if self.params['Online system'].val == 'JATOS':
