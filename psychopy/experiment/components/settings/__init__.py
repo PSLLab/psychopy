@@ -1354,22 +1354,22 @@ class SettingsComponent(object):
         if self.params['Online system'].val == 'JATOS':
             code = ("psychoJS.window.close();\n"
                     "await psychoJS.quit({message: message, isCompleted: isCompleted});\n"
-                    "if(isCompleted) {\n"
-                    "  if(typeof custom_abort_page !== 'undefined' && typeof custom_abort_msg !== 'undefined') {\n"
-                    "    jatos.endStudyAndRedirect(custom_abort_page, false, custom_abort_msg);\n"
-                    "  } else {\n")
+                    "if(isCompleted) {\n")
             buff.writeIndentedLines(code)
-            buff.setIndentLevel(2, relative=True)
+            buff.setIndentLevel(1, relative=True)
             # test if ending or next jatos component
             if len(self.params['Completed URL'].val):
-                buff.writeIndentedLines("jatos.endStudyAndRedirect({completedURL});\n".format(completedURL=self.params['Completed URL']))
+                buff.writeIndentedLines("jatos.endStudyAndRedirect({completedURL}, true, `Participant ID: ${{expInfo['participant']}}`);\n".format(completedURL=self.params['Completed URL']))
             else:
-                buff.writeIndentedLines("jatos.startNextComponent();\n")
-            code = ("  }\n"
-                    "} else {\n"
-                    "  jatos.endStudyAndRedirect('https://experiment.psllab.org/static/aborted.html', false, 'Study aborted by participant.');\n"
+                buff.writeIndentedLines("jatos.startNextComponent('', `Participant ID: ${expInfo['participant']}`);\n")
+            buff.setIndentLevel(-1, relative=True)
+            code = ("} else {\n"
+                    "  if(typeof custom_abort_page !== 'undefined' && typeof custom_abort_msg !== 'undefined') {\n"
+                    "    jatos.endStudyAndRedirect(custom_abort_page, false, `${custom_abort_msg} Participant ID: ${expInfo['participant']}`);\n"
+                    "  } else {\n"
+                    "    jatos.endStudyAndRedirect('https://experiment.psllab.org/static/aborted.html', false, `Study aborted by participant ID: ${expInfo['participant']}`);\n"
+                    "  }\n"
                     "}\n")
-            buff.setIndentLevel(-2, relative=True)
             buff.writeIndentedLines(code)
             buff.writeIndentedLines("return Scheduler.Event.QUIT;\n")
         else:

@@ -27,7 +27,7 @@ function updateInfo() {{
   }} else {{
     window.alert("No participant id provided. Make sure you are using the link from the PRP Sona website. If you see this after trying again, please contact the researcher. Study will now abort.");
     psychoJS.window.close();
-    jatos.endStudyAndRedirect('aborted.html', false, "Study aborted because no id provided.");
+    jatos.endStudyAndRedirect('https://experiment.psllab.org/static/aborted.html', false, "Study aborted because no id provided.");
     return;
   }}
   expInfo['jatos_study_id'] = jatos.studyId;
