@@ -175,13 +175,14 @@ class Keyboard:
                 self._ids = [-1]  # no indexing possible so get the combo keyboard
             else:
                 allInds, allNames, allKBs = hid.get_keyboard_indices()
+                #print(allNames)
                 if device==-1:
                     num_kbs = 0
                     # hacked this together because polling multiple fake keyboards in Linux
                     # led to dropped frames
                     # linux PCs had 4 keyboards including the power button
                     for kindex, name in enumerate(allNames):
-                        if 'key' in name.lower() and 'virtual' not in name.lower() and 'control' not in name.lower():
+                        if 'key' in name.lower() and 'virtual' not in name.lower() and 'control' not in name.lower() and 'hotkeys' not in name.lower():
                             num_kbs += 1
                             if num_kbs == 1:
                                 self._ids = [allInds[kindex]]
