@@ -6,7 +6,7 @@
 .. module:: psychopy.sound
 .. currentmodule:: psychopy.sound
 
-Audio playback is handled by the :class:`Sound` class. PsychoPy currently
+Audio playback is handled by the :class:`Sound` class. |PsychoPy| currently
 supports a choice of sound engines: *PTB*, *pyo*, *sounddevice* or *pygame*. You
 can select which will be used via the :ref:`audioLib<hardwareSettings>`
 preference. `sound.Sound()` will then refer to one of the following backends:
@@ -19,7 +19,7 @@ preference. `sound.Sound()` will then refer to one of the following backends:
 This preference can be set on a per-experiment basis by importing preferences,
 and :doc:`setting the audioLib option</api/preferences>` to use. Audio playback
 backends vary in performance due to all sorts of factors. Based on testing done
-by the PsychoPy team and reports from users, their performance can be summarized
+by the |PsychoPy| team and reports from users, their performance can be summarized
 as follows:
 
 * The `PTB` library has by far the lowest latencies and is strongly recommended
@@ -74,7 +74,7 @@ many things about the local operating system and hardware. You should test it
 yourself for your kit, but here is an example of a standard Win10 box using
 built-in audio (not a fancy audio card):
 
-.. figure:: /images/audioScope_Win10_PTB_mode3.png
+.. figure:: /images/audioScope_win10_PTB_mode3.png
     :align: center
 
     Sub-ms audio timing with standard audio on Win10. Yellow trace is a 440
@@ -134,7 +134,7 @@ PTB Audio Latency Modes
 When using the PTB backend you get the option to choose the Latency Mode,
 referred to in PsychToolBox as the `reqlatencyclass`.
 
-PsychoPy uses Mode 3 in as a default, assuming that you want low latency and you
+|PsychoPy| uses Mode 3 in as a default, assuming that you want low latency and you
 don't care if other applications can't play sound at the same time (don't listen
 to iTunes while running your study!)
 
@@ -142,7 +142,9 @@ The modes are as follows:
 
 **0 : Latency not important**
     For when it really doesn't matter. Latency can easily be in the region of
-    300ms!
+    300ms! The advantage of this move is that it will always work and always play a sound,
+    whatever the format of the existing sounds that have been played (with 2, 3, 4 you can obtain low latency but the
+    sampling rate must be the same throughout the experiment).
 
 **1 : Share low-latency access**
     Tries to use a low-latency setup in combination

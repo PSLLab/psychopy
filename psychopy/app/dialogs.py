@@ -13,10 +13,6 @@ ListWidget:
     the user to add/remove entries. e.g. expInfo control
 """
 
-from __future__ import absolute_import, print_function
-
-from builtins import str
-from builtins import range
 import wx
 from wx.lib.newevent import NewEvent
 
@@ -622,12 +618,6 @@ class ListWidget(GlobSizer):
         current value of the list of dictionaries represented in the grid
         """
         return self.getListOfDicts()
-
-    def SetToolTipString(self, tip):
-        """This isn't implemented yet.
-        Set every control to have the same tooltip?
-        """
-        pass
 
     def SetValidator(self, validator):
         # Set Validator on every applicable child element

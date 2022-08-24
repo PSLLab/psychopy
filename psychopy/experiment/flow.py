@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Describes the Flow of an experiment
 """
 
-from __future__ import absolute_import, print_function
-from past.builtins import basestring
 from xml.etree.ElementTree import Element
 
 from psychopy.experiment import getAllStandaloneRoutines
@@ -57,12 +55,12 @@ class Flow(list):
         return "psychopy.experiment.Flow(%s)" % (str(list(self)))
 
     @property
-    def xml(self):
+    def _xml(self):
         # Make root element
         element = Element("Flow")
         # Add an element for every Routine, Loop Initiator, Loop Terminator
         for item in self:
-            sub = item.xml
+            sub = item._xml
             if isinstance(item, Routine) or isinstance(item, BaseStandaloneRoutine):
                 # Remove all sub elements (we only need its name)
                 comps = [comp for comp in sub]
@@ -110,7 +108,7 @@ class Flow(list):
         elif component.getType() in ['Routine'] + list(getAllStandaloneRoutines()):
             if id is None:
                 # a Routine may come up multiple times - remove them all
-                # self.remove(component)  # cant do this - two empty routines
+                # self.remove(component)  # can't do this - two empty routines
                 # (with diff names) look the same to list comparison
                 toBeRemoved = []
                 for id, compInFlow in enumerate(self):
@@ -156,7 +154,7 @@ class Flow(list):
                     if (field.label.lower() in ['text', 'customize'] or
                             not field.valType in ('str', 'code')):
                         continue
-                    if (isinstance(field.val, basestring) and
+                    if (isinstance(field.val, str) and
                             field.val != field.val.strip()):
                         trailingWhitespace.append(
                             (field.val, key, component, entry))
@@ -226,18 +224,19 @@ class Flow(list):
         code = ("\n# Create some handy timers\n"
                 "globalClock = core.Clock()  # to track the "
                 "time since experiment started\n"
-                "routineTimer = core.CountdownTimer()  # to "
-                "track time remaining of each (non-slip) routine \n")
+                "routineTimer = core.Clock()  # to "
+                "track time remaining of each (possibly non-slip) routine \n")
         script.writeIndentedLines(code)
         # run-time code
         for entry in self:
             self._currentRoutine = entry
             entry.writeMainCode(script)
+            if hasattr(entry, "writeRoutineEndCode"):
+                entry.writeRoutineEndCode(script)
         # tear-down code (very few components need this)
         for entry in self:
             self._currentRoutine = entry
             entry.writeExperimentEndCode(script)
-
 
     def writeFlowSchedulerJS(self, script):
         """Initialise each component and then write the per-frame code too
@@ -350,7 +349,12 @@ class Flow(list):
             script.setIndentLevel(1, relative=True)
             code = ""
             for idx, resource in enumerate(resourceFiles):
-                temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
+                if "https://" in resource:
+                    name = resource.split('/')[-1]
+                    fullPath = resource
+                    temp = f"{{'name': '{name}', 'path': '{fullPath}'}}"
+                else:
+                    temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
                 code += temp
                 if idx != (len(resourceFiles)-1):
                     code += ",\n"  # Trailing comma

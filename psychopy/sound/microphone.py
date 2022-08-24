@@ -5,7 +5,7 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 __all__ = ['Microphone']
@@ -31,7 +31,7 @@ except (ImportError, ModuleNotFoundError):
     _hasPTB = False
 
 
-class RecordingBuffer(object):
+class RecordingBuffer:
     """Class for a storing a recording from a stream.
 
     Think of instances of this class behaving like an audio tape whereas the
@@ -307,7 +307,7 @@ class RecordingBuffer(object):
             sampleRateHz=self._sampleRateHz)
 
 
-class Microphone(object):
+class Microphone:
     """Class for recording audio from a microphone or input stream.
 
     Creating an instance of this class will open a stream using the specified
@@ -391,7 +391,7 @@ class Microphone(object):
     def __init__(self,
                  device=None,
                  sampleRateHz=None,
-                 channels=2,
+                 channels=None,
                  streamBufferSecs=2.0,
                  maxRecordingSize=24000,
                  policyWhenFull='warn',
@@ -917,8 +917,10 @@ class Microphone(object):
         # append current recording to clip list according to tag
         self.lastClip = self.getRecording()
         self.clips[tag].append(self.lastClip)
+        # synonymise null values
+        if transcribe in ('undefined', 'NONE', 'None', 'none', 'False', 'false', 'FALSE'):
+            transcribe = False
         # append current clip's transcription according to tag
-
         if transcribe:
             if transcribe in ('Built-in', True, 'BUILT_IN', 'BUILT-IN',
                               'Built-In', 'built-in'):

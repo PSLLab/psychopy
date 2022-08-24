@@ -18,9 +18,6 @@ The following variables control what video is played during the test as well as
 other configuration settings:
 """
 
-from __future__ import division
-from __future__ import print_function
-
 #   Test Config.
 
 # Relative path (from this scripts folder) for the video clip to be played .
@@ -336,7 +333,7 @@ def formattedDictStr(d, indent=1, rstr=''):
     return rstr
 
 def bytes2human(n):
-    # http://code.activestate.com/recipes/578019
+    # https://code.activestate.com/recipes/578019/
     # >>  > bytes2human(10000)
     # '9.8K'
     # >>  > bytes2human(100001221)

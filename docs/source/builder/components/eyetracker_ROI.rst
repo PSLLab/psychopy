@@ -5,7 +5,7 @@ Eye Tracker Region of Interest Component
 
 Please note: This is a new component, and is subject to change.
 
-Record eye movement events occuring within a defined Regio of Interest (ROI). Note that you will still need to add an
+Record eye movement events occurring within a defined Region of Interest (ROI). Note that you will still need to add an
 Eyetracker Record component to this routine to save eye movement data.
 
 Parameters
@@ -14,7 +14,7 @@ Parameters
 Basic
 ============
 Name : string
-    Everything in a PsychoPy experiment needs a unique name. The name should contain only letters, numbers and underscores (no punctuation marks or spaces).
+    Everything in a |PsychoPy| experiment needs a unique name. The name should contain only letters, numbers and underscores (no punctuation marks or spaces).
     
 Start : float or integer
     The time that the stimulus should first play. See :ref:`startStop` for details.

@@ -25,12 +25,10 @@ movie is long then audio will be huge and currently the whole thing gets
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
+from pathlib import Path
 
-from __future__ import absolute_import, division, print_function
-
-from builtins import str
 reportNDroppedFrames = 10
 
 import os
@@ -80,6 +78,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
                  units='pix',
                  size=None,
                  pos=(0.0, 0.0),
+                 anchor="center",
                  ori=0.0,
                  flipVert=False,
                  flipHoriz=False,
@@ -115,6 +114,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
         self.flipVert = flipVert
         self.flipHoriz = flipHoriz
         self.pos = numpy.asarray(pos, float)
+        self.anchor = anchor
         self.depth = depth
         self.opacity = opacity
         self.interpolate = interpolate
@@ -183,7 +183,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
 
     def reset(self):
         self._numpyFrame = None
-        self._nextFrameT = None
+        self._nextFrameT = 0.0
         self._texID = None
         self.status = NOT_STARTED
         self.nDroppedFrames = 0
@@ -221,6 +221,7 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
         filename = pathToString(filename)
         self.reset()  # set status and timestamps etc
 
+        self._mov = None
         # Create Video Stream stuff
         if os.path.isfile(filename):
             self._mov = VideoFileClip(filename, audio=(1 - self.noAudio))
@@ -242,7 +243,11 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
                     del(jwe_tmp)
             else:  # make sure we set to None (in case prev clip had audio)
                 self._audioStream = None
+        elif not filename.startswith(prefs.paths['resources']):
+            # If not found, and we aren't already looking in the Resources folder, try again in the Resources folder
+            self.loadMovie(Path(prefs.paths['resources']) / filename, log=False)
         else:
+            # Raise error if *still* not found
             raise IOError("Movie file '%s' was not found" % filename)
         # mov has attributes:
             # size, duration, fps
@@ -282,8 +287,8 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
         if self.status == PLAYING:
             self.status = PAUSED
             if self._audioStream:
-                if prefs.hardware['audioLib'] == ['sounddevice']:
-                    self._audioStream.pause()  # sounddevice has a "pause" function -JK
+                if prefs.hardware['audioLib'] in ['sounddevice', 'PTB']:
+                    self._audioStream.pause()  # sounddevice and PTB have a "pause" function -JK
                 else:
                     self._audioStream.stop()
             if log and self.autoLog:
@@ -393,10 +398,11 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
             GL.glGenTextures(1, ctypes.byref(self._texID))
             useSubTex = False
 
-        # bind the texture in openGL
-        GL.glEnable(GL.GL_TEXTURE_2D)
+        GL.glActiveTexture(GL.GL_TEXTURE0)
         # bind that name to the target
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._texID)
+        # bind the texture in openGL
+        GL.glEnable(GL.GL_TEXTURE_2D)
         # makes the texture map wrap (this is actually default anyway)
         GL.glTexParameteri(
             GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP)
@@ -524,9 +530,9 @@ class MovieStim3(BaseVisualStim, ContainerMixin, TextureMixin):
         sound = self.sound
         if self._audioStream is None:
             return  # do nothing
-        # check if sounddevice  is being used. If so we can use seek. If not we
+        # check if sounddevice or PTB is being used. If so we can use seek. If not we
         # have to reload the audio stream and begin at the new loc
-        if prefs.hardware['audioLib'] == ['sounddevice']:
+        if prefs.hardware['audioLib'] in ['sounddevice', 'PTB']:
             self._audioStream.seek(t)
         else:
             self._audioStream.stop()

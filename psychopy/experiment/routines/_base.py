@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Describes the Flow of an experiment
 """
-
-from __future__ import absolute_import, print_function
+import copy
 
 from psychopy.constants import FOREVER
 from xml.etree.ElementTree import Element
 from pathlib import Path
 
+from psychopy.experiment.components.static import StaticComponent
 from psychopy.localization import _translate
 from psychopy.experiment import Param
 
@@ -36,7 +36,7 @@ class BaseStandaloneRoutine:
         self.order = ['stopVal', 'stopType', 'name']
 
         msg = _translate(
-            "Name of this routine (alpha-numeric or _, no spaces)")
+            "Name of this routine (alphanumeric or _, no spaces)")
         self.params['name'] = Param(name,
                                     valType='code', inputType="single", categ='Basic',
                                     hint=msg,
@@ -52,19 +52,19 @@ class BaseStandaloneRoutine:
         self.params['stopType'] = Param(stopType,
             valType='str', inputType="choice", categ='Basic',
             allowedVals=['duration (s)', 'duration (frames)', 'condition'],
-            hint=msg,
+            hint=msg, direct=False,
             label=_translate('Stop Type...'))
 
         # Testing
-        msg = _translate("Disable this component")
+        msg = _translate("Disable this routine")
         self.params['disabled'] = Param(disabled,
             valType='bool', inputType="bool", categ="Testing",
-            hint=msg, allowedTypes=[],
+            hint=msg, allowedTypes=[], direct=False,
             label=_translate('Disable component'))
 
     def __repr__(self):
-        _rep = "psychopy.experiment.%s(name='%s', exp=%s)"
-        return _rep % (self.__class__, self.name, self.exp)
+        _rep = "psychopy.experiment.routines.%s(name='%s', exp=%s)"
+        return _rep % (self.__class__.__name__, self.name, self.exp)
 
     def __iter__(self):
         """Overloaded iteration behaviour - if iterated through, a standaloneRoutine returns
@@ -84,7 +84,7 @@ class BaseStandaloneRoutine:
             return self
 
     @property
-    def xml(self):
+    def _xml(self):
         # Make root element
         element = Element(self.__class__.__name__)
         element.set("name", self.params['name'].val)
@@ -103,6 +103,14 @@ class BaseStandaloneRoutine:
             element.append(paramNode)
 
         return element
+
+    def copy(self):
+        # Create a deep copy of self
+        dupe = copy.deepcopy(self)
+        # ...but retain original exp reference
+        dupe.exp = self.exp
+
+        return dupe
 
     def writePreCode(self, buff):
         return
@@ -126,12 +134,6 @@ class BaseStandaloneRoutine:
         return
 
     def writeMainCode(self, buff):
-        code = (
-            "\n"
-            "# -------Run Routine '%(name)s'-------\n"
-            "\n"
-        )
-        buff.writeIndentedLines(code % self.params)
         return
 
     def writeRoutineBeginCodeJS(self, buff, modular):
@@ -139,6 +141,13 @@ class BaseStandaloneRoutine:
 
     def writeEachFrameCodeJS(self, buff, modular):
         return
+
+    def writeRoutineEndCode(self, buff):
+        # reset routineTimer at the *very end* of all non-nonSlip routines
+        code = ('# the Routine "%s" was not non-slip safe, so reset '
+                'the non-slip timer\n'
+                'routineTimer.reset()\n')
+        buff.writeIndentedLines(code % self.name)
 
     def writeRoutineEndCodeJS(self, buff, modular):
         return
@@ -155,7 +164,7 @@ class BaseStandaloneRoutine:
     def getComponentFromName(self, name):
         return None
 
-    def getComponentFromType(self, type):
+    def getComponentFromType(self, thisType):
         return None
 
     def hasOnlyStaticComp(self):
@@ -192,6 +201,14 @@ class BaseStandaloneRoutine:
             if 'name' in self.params:
                 self.params['name'].val = value
 
+    @property
+    def disabled(self):
+        return bool(self.params['disabled'])
+
+    @disabled.setter
+    def disabled(self, value):
+        self.params['disabled'].val = value
+
 
 class Routine(list):
     """
@@ -204,9 +221,19 @@ class Routine(list):
     each of which knows when it starts and stops.
     """
 
-    def __init__(self, name, exp, components=()):
+    targets = ["PsychoPy", "PsychoJS"]
+
+    def __init__(self, name, exp, components=(), disabled=False):
         super(Routine, self).__init__()
         self.params = {'name': name}
+
+        # Testing
+        msg = _translate("Disable this component")
+        self.params['disabled'] = Param(disabled,
+            valType='bool', inputType="bool", categ="Testing",
+            hint=msg, allowedTypes=[], direct=False,
+            label=_translate('Disable component'))
+
         self.name = name
         self.exp = exp
         self._clockName = None  # for scripts e.g. "t = trialClock.GetTime()"
@@ -217,14 +244,28 @@ class Routine(list):
         _rep = "psychopy.experiment.Routine(name='%s', exp=%s, components=%s)"
         return _rep % (self.name, self.exp, str(list(self)))
 
+    def copy(self):
+        # Create a new routine with the same experiment and name as this one
+        dupe = type(self)(self.name, self.exp, components=())
+        # Iterate through components
+        for comp in self:
+            # Create a deep copy of each component...
+            newComp = copy.deepcopy(comp)
+            # ...but retain original exp reference
+            newComp.exp = self.exp
+            # Append to new routine
+            dupe.append(newComp)
+
+        return dupe
+
     @property
-    def xml(self):
+    def _xml(self):
         # Make root element
         element = Element("Routine")
         element.set("name", self.name)
         # Add each component's element
         for comp in self:
-            element.append(comp.xml)
+            element.append(comp._xml)
 
         return element
 
@@ -235,6 +276,9 @@ class Routine(list):
     @name.setter
     def name(self, name):
         self.params['name'] = name
+        # Update references in components
+        for comp in self:
+            comp.parentName = name
 
     def integrityCheck(self):
         """Run tests on self and on all the Components inside"""
@@ -246,10 +290,34 @@ class Routine(list):
         """Add a component to the end of the routine"""
         self.append(component)
 
+    def insertComponent(self, index, component):
+        """Insert a component at some point of the routine.
+
+        Parameters
+        ----------
+        index : int
+            Position in the routine to insert the component.
+        component : object
+            Component object to insert.
+
+        """
+        try:
+            self.insert(index, component)
+        except IndexError:
+            self.append(component)  # just insert at the end on invalid index
+
     def removeComponent(self, component):
         """Remove a component from the end of the routine"""
         name = component.params['name']
         self.remove(component)
+        # if this is a static component, we need to remove references to it
+        if isinstance(component, StaticComponent):
+            for update in component.updatesList:
+                # remove reference in component
+                comp = self.exp.getComponentFromName(update['compName'])
+                if comp:
+                    param = comp.params[update['fieldName']]
+                    param.updates = None
         # check if the component was using any Static Components for updates
         for thisParamName, thisParam in list(component.params.items()):
             if (hasattr(thisParam, 'updates') and
@@ -314,10 +382,11 @@ class Routine(list):
                 thisCompon.writeRunOnceInitCode(buff)
 
     def writeInitCode(self, buff):
-        code = '\n# Initialize components for Routine "%s"\n'
+        code = '\n# --- Initialize components for Routine "%s" ---\n'
         buff.writeIndentedLines(code % self.name)
-        self._clockName = self.name + "Clock"
-        buff.writeIndented('%s = core.Clock()\n' % self._clockName)
+
+        maxTime, useNonSlip = self.getMaxTime()
+        self._clockName = 'routineTimer'
         for thisCompon in self:
             thisCompon.writeInitCode(buff)
 
@@ -334,15 +403,16 @@ class Routine(list):
         """This defines the code for the frames of a single routine
         """
         # create the frame loop for this routine
-        code = ('\n# ------Prepare to start Routine "%s"-------\n')
+        code = ('\n# --- Prepare to start Routine "%s" ---\n')
         buff.writeIndentedLines(code % (self.name))
-        code = 'continueRoutine = True\n'
+        code = (
+            'continueRoutine = True\n'
+            'routineForceEnded = False\n'
+        )
         buff.writeIndentedLines(code)
 
         # can we use non-slip timing?
         maxTime, useNonSlip = self.getMaxTime()
-        if useNonSlip:
-            buff.writeIndented('routineTimer.add(%f)\n' % (maxTime))
 
         code = "# update component parameters for each repeat\n"
         buff.writeIndentedLines(code)
@@ -367,13 +437,13 @@ class Routine(list):
                 "# reset timers\n"
                 't = 0\n'
                 '_timeToFirstFrame = win.getFutureFlipTime(clock="now")\n'
-                '{clockName}.reset(-_timeToFirstFrame)  # t0 is time of first possible flip\n'
+                # '{clockName}.reset(-_timeToFirstFrame)  # t0 is time of first possible flip\n'
                 'frameN = -1\n'
-                '\n# -------Run Routine "{name}"-------\n')
+                '\n# --- Run Routine "{name}" ---\n')
         buff.writeIndentedLines(code.format(name=self.name,
                                             clockName=self._clockName))
         if useNonSlip:
-            code = 'while continueRoutine and routineTimer.getTime() > 0:\n'
+            code = f'while continueRoutine and routineTimer.getTime() < {maxTime}:\n'
         else:
             code = 'while continueRoutine:\n'
         buff.writeIndented(code)
@@ -411,6 +481,7 @@ class Routine(list):
             '\n# check if all components have finished\n'
             'if not continueRoutine:  # a component has requested a '
             'forced-end of Routine\n'
+            '    routineForceEnded = True\n'
             '    break\n'
             'continueRoutine = False  # will revert to True if at least '
             'one component still running\n'
@@ -432,7 +503,7 @@ class Routine(list):
         buff.setIndentLevel(-1, True)
 
         # write the code for each component for the end of the routine
-        code = ('\n# -------Ending Routine "%s"-------\n'
+        code = ('\n# --- Ending Routine "%s" ---\n'
                 'for thisComponent in %sComponents:\n'
                 '    if hasattr(thisComponent, "setAutoDraw"):\n'
                 '        thisComponent.setAutoDraw(False)\n')
@@ -440,13 +511,15 @@ class Routine(list):
         for event in self:
             event.writeRoutineEndCode(buff)
 
-        # reset routineTimer at the *very end* of all non-nonSlip routines
-        if not useNonSlip:
-            code = ('# the Routine "%s" was not non-slip safe, so reset '
-                    'the non-slip timer\n'
-                    'routineTimer.reset()\n')
-            buff.writeIndentedLines(code % self.name)
-
+        if useNonSlip:
+            code = (
+                "# using non-slip timing so subtract the expected duration of this Routine (unless ended on request)\n"
+                "if routineForceEnded:\n"
+                "    routineTimer.reset()\n"
+                "else:\n"
+                "    routineTimer.addTime(-%f)\n"
+            )
+            buff.writeIndentedLines(code % (maxTime))
 
     def writeRoutineBeginCodeJS(self, buff, modular):
 
@@ -459,7 +532,7 @@ class Routine(list):
         buff.setIndentLevel(1, relative=True)
 
         code = ("TrialHandler.fromSnapshot(snapshot); // ensure that .thisN vals are up to date\n\n"
-                "//------Prepare to start Routine '%(name)s'-------\n"
+                "//--- Prepare to start Routine '%(name)s' ---\n"
                 "t = 0;\n"
                 "%(name)sClock.reset(); // clock\n"
                 "frameN = -1;\n"
@@ -518,7 +591,7 @@ class Routine(list):
         buff.writeIndentedLines("return async function () {\n")
         buff.setIndentLevel(1, relative=True)
 
-        code = ("//------Loop for each frame of Routine '%(name)s'-------\n"
+        code = ("//--- Loop for each frame of Routine '%(name)s' ---\n"
                 "// get current time\n"
                 "t = %(name)sClock.getTime();\n"
                 "frameN = frameN + 1;"
@@ -582,25 +655,37 @@ class Routine(list):
         buff.setIndentLevel(-1, relative=True)
         buff.writeIndentedLines("}\n")
 
+    def writeRoutineEndCode(self, buff):
+        # can we use non-slip timing?
+        maxTime, useNonSlip = self.getMaxTime()
+
+        # reset routineTimer at the *very end* of all non-nonSlip routines
+        if not useNonSlip:
+            code = ('# the Routine "%s" was not non-slip safe, so reset '
+                    'the non-slip timer\n'
+                    'routineTimer.reset()\n')
+            buff.writeIndentedLines(code % self.name)
+
+
     def writeRoutineEndCodeJS(self, buff, modular):
         # can we use non-slip timing?
         maxTime, useNonSlip = self.getMaxTime()
 
-        code = ("\nfunction %(name)sRoutineEnd() {\n" % self.params)
+        code = ("\nfunction %(name)sRoutineEnd(snapshot) {\n" % self.params)
         buff.writeIndentedLines(code)
         buff.setIndentLevel(1, relative=True)
         buff.writeIndentedLines("return async function () {\n")
         buff.setIndentLevel(1, relative=True)
 
         if modular:
-            code = ("//------Ending Routine '%(name)s'-------\n"
+            code = ("//--- Ending Routine '%(name)s' ---\n"
                     "for (const thisComponent of %(name)sComponents) {\n"
                     "  if (typeof thisComponent.setAutoDraw === 'function') {\n"
                     "    thisComponent.setAutoDraw(false);\n"
                     "  }\n"
                     "}\n")
         else:
-            code = ("//------Ending Routine '%(name)s'-------\n"
+            code = ("//--- Ending Routine '%(name)s' ---\n"
                     "%(name)sComponents.forEach( function(thisComponent) {\n"
                     "  if (typeof thisComponent.setAutoDraw === 'function') {\n"
                     "    thisComponent.setAutoDraw(false);\n"
@@ -619,9 +704,14 @@ class Routine(list):
                     'routineTimer.reset();\n\n')
             buff.writeIndentedLines(code % self.name)
 
+        buff.writeIndentedLines(
+            "// Routines running outside a loop should always advance the datafile row\n"
+            "if (currentLoop === psychoJS.experiment) {\n"
+            "  psychoJS.experiment.nextEntry(snapshot);\n"
+            "}\n")
         buff.writeIndented('return Scheduler.Event.NEXT;\n')
         buff.setIndentLevel(-1, relative=True)
-        buff.writeIndentedLines("};\n")
+        buff.writeIndentedLines("}\n")
         buff.setIndentLevel(-1, relative=True)
         buff.writeIndentedLines("}\n")
 
@@ -649,9 +739,9 @@ class Routine(list):
                 return comp
         return None
 
-    def getComponentFromType(self, type):
+    def getComponentFromType(self, thisType):
         for comp in self:
-            if comp.type == type:
+            if comp.type == thisType:
                 return comp
         return None
 
@@ -685,3 +775,11 @@ class Routine(list):
             maxTime = 10
             nonSlipSafe = False
         return maxTime, nonSlipSafe
+
+    @property
+    def disabled(self):
+        return bool(self.params['disabled'])
+
+    @disabled.setter
+    def disabled(self, value):
+        self.params['disabled'].val = value

@@ -2,15 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 # Author: Jeremy R. Gray, 2012
-
-from __future__ import absolute_import, print_function
-from builtins import super  # provides Py3-style super() using python-future
-
-from os import path
 from pathlib import Path
 
 from psychopy.alerts import alert
@@ -55,9 +50,9 @@ class MicrophoneComponent(BaseComponent):
                  stopType='duration (s)', stopVal=2.0,
                  startEstim='', durationEstim='',
                  channels='auto', device="default",
-                 sampleRate='Voice (16kHz)', maxSize=24000,
+                 sampleRate='DVD Audio (48kHz)', maxSize=24000,
                  outputType='default', speakTimes=True, trimSilent=False,
-                 transcribe=True, transcribeBackend="Google", transcribeLang="en-US", transcribeWords="",
+                 transcribe=False, transcribeBackend="Google", transcribeLang="en-US", transcribeWords="",
                  #legacy
                  stereo=None, channel=None):
         super(MicrophoneComponent, self).__init__(
@@ -104,7 +99,7 @@ class MicrophoneComponent(BaseComponent):
         self.params['sampleRate'] = Param(
             sampleRate, valType='num', inputType="choice", categ='Hardware',
             allowedVals=list(sampleRates),
-            hint=msg,
+            hint=msg, direct=False,
             label=_translate('Sample Rate (Hz)'))
 
         msg = _translate(
@@ -163,14 +158,14 @@ class MicrophoneComponent(BaseComponent):
 
         self.params['transcribeBackend'] = Param(
             transcribeBackend, valType='code', inputType='choice', categ='Transcription',
-            allowedVals=list(allTranscribers),
+            allowedVals=list(allTranscribers), direct=False,
             hint=_translate("What transcription service to use to transcribe audio?"),
             label=_translate("Transcription Backend")
         )
 
         self.params['transcribeLang'] = Param(
             transcribeLang, valType='str', inputType='single', categ='Transcription',
-            hint=_translate("What language you expect the recording to be spoken in, e.g. en-GB for English"),
+            hint=_translate("What language you expect the recording to be spoken in, e.g. en-US for English"),
             label=_translate("Transcription Language")
         )
 
@@ -212,11 +207,15 @@ class MicrophoneComponent(BaseComponent):
         inits['sampleRate'] = sampleRates[inits['sampleRate'].val]
         # Substitute channel value for numeric equivalent
         inits['channels'] = {'mono': 1, 'stereo': 2, 'auto': None}[self.params['channels'].val]
-        # Substitute device name for device index
-        device = devices[self.params['device'].val]
-        if hasattr(device, "deviceIndex"):
-            inits['device'] = device.deviceIndex
+        # Substitute device name for device index, or default if not found
+        if self.params['device'].val in devices:
+            device = devices[self.params['device'].val]
+            if hasattr(device, "deviceIndex"):
+                inits['device'] = device.deviceIndex
+            else:
+                inits['device'] = None
         else:
+            alert(4330, strFields={'device': self.params['device'].val})
             inits['device'] = None
         # Create Microphone object and clips dict
         code = (
@@ -356,12 +355,22 @@ class MicrophoneComponent(BaseComponent):
             "# tell mic to keep hold of current recording in %(name)s.clips and transcript (if applicable) in %(name)s.scripts\n"
             "# this will also update %(name)s.lastClip and %(name)s.lastScript\n"
             "%(name)s.stop()\n"
-            "%(name)sClip, %(name)sScript = %(name)s.bank(\n"
         )
+        buff.writeIndentedLines(code % inits)
+        if inits['transcribeBackend'].val:
+            code = (
+                "tag = data.utils.getDateStr()\n"
+                "%(name)sClip, %(name)sScript = %(name)s.bank(\n"
+            )
+        else:
+            code = (
+                "tag = data.utils.getDateStr()\n"
+                "%(name)sClip = %(name)s.bank(\n"
+            )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(1, relative=True)
         code = (
-            "tag='%(loop)s', transcribe='%(transcribeBackend)s',\n"
+            "tag=tag, transcribe='%(transcribeBackend)s',\n"
         )
         buff.writeIndentedLines(code % inits)
         if transcribe:
@@ -376,7 +385,7 @@ class MicrophoneComponent(BaseComponent):
         buff.setIndentLevel(-1, relative=True)
         code = (
             ")\n"
-            "%(loop)s.addData('%(name)s.clip', os.path.join(%(name)sRecFolder, %(filename)s))\n"
+            "%(loop)s.addData('%(name)s.clip', os.path.join(%(name)sRecFolder, 'recording_%(name)s_%%s.%(outputType)s' %% tag))\n"
         )
         buff.writeIndentedLines(code % inits)
         if transcribe:
@@ -390,12 +399,6 @@ class MicrophoneComponent(BaseComponent):
     def writeRoutineEndCodeJS(self, buff):
         inits = getInitVals(self.params)
         inits['routine'] = self.parentName
-        if len(self.exp.flow._loopList):
-            inits['loop'] = self.exp.flow._loopList[-1].params['name']
-            inits['filename'] = f"'recording_{inits['name']}_{inits['loop']}_' + {inits['loop']}.thisN"
-        else:
-            inits['loop'] = ""
-            inits['filename'] = f"'recording_{inits['name']}'"
         if inits['transcribeBackend'].val in allTranscribers:
             inits['transcribeBackend'].val = allTranscribers[self.params['transcribeBackend'].val]
         # Warn user if their transcriber won't work online
@@ -409,20 +412,22 @@ class MicrophoneComponent(BaseComponent):
         code = (
             "// stop the microphone (make the audio data ready for upload)\n"
             "await %(name)s.stop();\n"
+            "// construct a filename for this recording\n"
+            "thisFilename = 'recording_%(name)s_' + currentLoop.name + '_' + currentLoop.thisN\n"
             "// get the recording\n"
             "%(name)s.lastClip = await %(name)s.getRecording({\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(1, relative=True)
         code = (
-                "tag: %(filename)s,\n"
+                "tag: thisFilename + '_' + util.MonotonicClock.getDateStr(),\n"
                 "flush: false\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(-1, relative=True)
         code = (
             "});\n"
-            "psychoJS.experiment.addData('%(name)s.clip', %(filename)s);\n"
+            "psychoJS.experiment.addData('%(name)s.clip', thisFilename);\n"
             "// start the asynchronous upload to the server\n"
             "%(name)s.lastClip.upload();\n"
         )
@@ -475,7 +480,22 @@ class MicrophoneComponent(BaseComponent):
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(1, relative=True)
         code = (
-                    "clip.save(os.path.join(%(name)sRecFolder, 'recording_%(name)s_%%s_%%s.%(outputType)s' %% (tag, i)))\n"
+                    "clipFilename = 'recording_%(name)s_%%s.%(outputType)s' %% tag\n"
+        )
+        buff.writeIndentedLines(code % inits)
+        code = (
+                    "# if there's more than 1 clip with this tag, append a counter for all beyond the first\n"
+                    "if i > 0:\n"
+        )
+        buff.writeIndentedLines(code % inits)
+        buff.setIndentLevel(1, relative=True)
+        code = (
+                        "clipFilename += '_%%s' %% i"
+        )
+        buff.writeIndentedLines(code % inits)
+        buff.setIndentLevel(-1, relative=True)
+        code = (
+                    "clip.save(os.path.join(%(name)sRecFolder, clipFilename))\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(-2, relative=True)

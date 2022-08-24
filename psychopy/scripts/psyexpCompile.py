@@ -2,22 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 import io
 import sys
 import os
 import argparse
-import traceback
 from copy import deepcopy
 from subprocess import PIPE, Popen
 
-from psychopy.constants import PY3
-from psychopy import __version__, logging
+from psychopy import __version__
 
-# parse args for subprocess
-from psychopy.experiment.routines import BaseStandaloneRoutine
+# DO NOT IMPORT ANY OTHER PSYCHOPY SUB-PACKAGES OR THEY WON'T SWITCH VERSIONS
 
 parser = argparse.ArgumentParser(description='Compile your python file from here')
 parser.add_argument('infile', help='The input (psyexp) file to be compiled')
@@ -41,6 +38,7 @@ def generateScript(experimentPath, exp, target="PsychoPy"):
     Returns
     -------
     """
+    import logging  # import here not at top of script (or useVersion fails)
     print("Generating {} script...\n".format(target))
     exp.expPath = os.path.abspath(experimentPath)
 
@@ -50,8 +48,6 @@ def generateScript(experimentPath, exp, target="PsychoPy"):
         pythonExec = sys.executable.replace(' ', r'\ ')
 
     filename = experimentPath
-    if not PY3:  # encode path in Python2
-        filename = experimentPath = experimentPath.encode(sys.getfilesystemencoding())
 
     # Compile script from command line using version
     compiler = 'psychopy.scripts.psyexpCompile'
@@ -74,11 +70,12 @@ def generateScript(experimentPath, exp, target="PsychoPy"):
     else:
         compileScript(infile=exp, version=None, outfile=filename)
 
+
 def compileScript(infile=None, version=None, outfile=None):
     """
     Compile either Python or JS PsychoPy script from .psyexp file.
 
-    Paramaters
+    Parameters
     ----------
 
     infile: string, experiment.Experiment object
@@ -105,8 +102,8 @@ def compileScript(infile=None, version=None, outfile=None):
             from psychopy import useVersion
             useVersion(version)
 
+        # import logging here not at top of script (or useVersion fails)
         global logging
-
         from psychopy import logging
 
         if __name__ != '__main__' and version not in [None, 'None', 'none', '']:
@@ -166,7 +163,7 @@ def compileScript(infile=None, version=None, outfile=None):
         # Leave original experiment unchanged.
         exp = deepcopy(exp)
         for key, routine in list(exp.routines.items()):  # PY2/3 compat
-            if isinstance(routine, BaseStandaloneRoutine):
+            if routine.type == 'StandaloneRoutine':
                 if routine.params['disabled']:
                     for node in exp.flow:
                         if node == routine:

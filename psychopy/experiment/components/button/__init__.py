@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2021 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from os import path
@@ -41,7 +41,7 @@ class ButtonComponent(BaseVisualComponent):
     targets = ['PsychoPy', 'PsychoJS']
     iconFile = Path(__file__).parent / 'button.png'
     tooltip = _translate('Button: A clickable textbox')
-    beta = False
+    beta = True
 
     def __init__(self, exp, parentName, name="button",
                  startType='time (s)', startVal=0,
@@ -78,7 +78,7 @@ class ButtonComponent(BaseVisualComponent):
 
         self.params['forceEndRoutine'] = Param(
             forceEndRoutine, valType='bool', inputType="bool", categ='Basic',
-            updates='constant',
+            updates='constant', direct=False,
             hint=_translate("Should a response force the end of the Routine "
                             "(e.g end the trial)?"),
             label=_localized['forceEndRoutine'])
@@ -161,11 +161,13 @@ class ButtonComponent(BaseVisualComponent):
             allowedVals=['first click', 'last click', 'every click', 'none'],
             hint=_translate(
                 "What clicks on this button should be saved to the data output?"),
+            direct=False,
             label=_localized['save'])
         self.params['timeRelativeTo'] = Param(
             timeRelativeTo, valType='str', inputType="choice", categ='Data',
             allowedVals=['button onset', 'experiment', 'routine'],
             updates='constant',
+            direct=False,
             hint=_translate(
                 "What should the values of mouse.time should be "
                 "relative to?"),
@@ -218,7 +220,12 @@ class ButtonComponent(BaseVisualComponent):
                 "win: psychoJS.window,\n"
                 "name: '%(name)s',\n"
                 "text: %(text)s,\n"
-                "pos: %(pos)s, letterHeight: %(letterHeight)s,\n"
+                "fillColor: %(fillColor)s,\n"
+                "borderColor: %(borderColor)s,\n"
+                "color: %(color)s,\n"
+                "colorSpace: %(colorSpace)s,\n"
+                "pos: %(pos)s,\n"
+                "letterHeight: %(letterHeight)s,\n"
                 "size: %(size)s\n"
         )
         buff.writeIndentedLines(code % inits)
@@ -318,7 +325,6 @@ class ButtonComponent(BaseVisualComponent):
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(1, relative=True)
         code = (
-            f"%(name)s.buttonClock.reset() # keep clock at 0 if %(name)s hasn't started / has finished\n"
             f"%(name)s.wasClicked = False  # if %(name)s is clicked next frame, it is a new click\n"
         )
         buff.writeIndentedLines(code % inits)
@@ -330,7 +336,7 @@ class ButtonComponent(BaseVisualComponent):
         inits = getInitVals(self.params, 'PsychoJS')
         # Get callback from params
         callback = inits['callback']
-        if inits['callback'].val:
+        if inits['callback'].val not in [None, "None", "none", "undefined"]:
             callback = translatePythonToJavaScript(str(callback))
         else:
             callback = ""
@@ -355,6 +361,7 @@ class ButtonComponent(BaseVisualComponent):
         code = (
                         "// store time of first click\n"
                         "%(name)s.timesOn.push(%(name)s.clock.getTime());\n"
+                        "%(name)s.numClicks += 1;\n"
                         "// store time clicked until\n"
                         "%(name)s.timesOff.push(%(name)s.clock.getTime());\n"
         )
@@ -412,7 +419,7 @@ class ButtonComponent(BaseVisualComponent):
         buff.setIndentLevel(1, relative=True)
         code = (
                     "// if %(name)s is clicked next frame, it is a new click\n"
-                    "%(name)s.wasClicked = false\n"
+                    "%(name)s.wasClicked = false;\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(-1, relative=True)
@@ -463,6 +470,15 @@ class ButtonComponent(BaseVisualComponent):
                 f"   {currLoop.params['name']}.addData('{name}.timesOff', \"\")\n"
             )
             buff.writeIndentedLines(code)
+
+    def writeRoutineEndCodeJS(self, buff):
+        # Save data
+        code = (
+            "psychoJS.experiment.addData('%(name)s.numClicks', %(name)s.numClicks);\n"
+            "psychoJS.experiment.addData('%(name)s.timesOn', %(name)s.timesOn);\n"
+            "psychoJS.experiment.addData('%(name)s.timesOff', %(name)s.timesOff);\n"
+        )
+        buff.writeIndentedLines(code % self.params)
 
     def integrityCheck(self):
         super().integrityCheck()  # run parent class checks first
