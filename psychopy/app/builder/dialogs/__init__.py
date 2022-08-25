@@ -1890,4 +1890,3 @@ class DlgNewRoutine(wx.Dialog):
         self.Layout()  # update the size of the button
         self.Fit()
         # self.templateMenu.Destroy()  # destroy to avoid mem leak
->>>>>>> release
