@@ -609,7 +609,6 @@ class TextStim(BaseVisualStim, ForeColorMixin, ContainerMixin):
 
     @attributeSetter
     def anchorHoriz(self, value):
-        print('set anchor')
         """The horizontal alignment ('left', 'right' or 'center')
         """
         self.__dict__['anchorHoriz'] = value
