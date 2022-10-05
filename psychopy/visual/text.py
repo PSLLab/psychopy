@@ -566,6 +566,8 @@ class TextStim(BaseVisualStim, ForeColorMixin, ContainerMixin):
         """Make the text bold (True, False) (better to use a bold font name).
         """
         self.__dict__['bold'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.bold = value
         self.font = self.font  # call attributeSetter
 
     @attributeSetter
@@ -574,24 +576,24 @@ class TextStim(BaseVisualStim, ForeColorMixin, ContainerMixin):
         Make the text italic (better to use a italic font name).
         """
         self.__dict__['italic'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.italic = value
         self.font = self.font  # call attributeSetter
 
-    @attributeSetter
-    def alignHoriz(self, value):
-        """Deprecated in PsychoPy 3.3. Use `alignText` and `anchorHoriz`
-        instead
-        """
-        self.__dict__['alignHoriz'] = value
-        self._needSetText = True
+    # @attributeSetter
+    # def alignHoriz(self, value):
+    #     """Deprecated in PsychoPy 3.3. Use `alignText` and `anchorHoriz`
+    #     instead
+    #     """
+    #     self.__dict__['alignHoriz'] = value
+    #     self._needSetText = True
 
-    @attributeSetter
-    def alignVert(self, value):
-        """Deprecated in PsychoPy 3.3. Use `anchorVert`
-        """
-        self.__dict__['alignVert'] = value
-        if self._pygletTextObj is not None:
-            self._pygletTextObj.valign = self.alignVert
-        self._needSetText = True
+    # @attributeSetter
+    # def alignVert(self, value):
+    #     """Deprecated in PsychoPy 3.3. Use `anchorVert`
+    #     """
+    #     self.__dict__['alignVert'] = value
+    #     self._needSetText = True
 
     @attributeSetter
     def alignText(self, value):
@@ -600,13 +602,19 @@ class TextStim(BaseVisualStim, ForeColorMixin, ContainerMixin):
         See also `anchorX` to set alignment of the box itself relative to pos
         """
         self.__dict__['alignText'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj.document.set_style(0, len(self._pygletTextObj.document.text),
+                                                   {'align': value})
         self._needSetText = True
 
     @attributeSetter
     def anchorHoriz(self, value):
+        print('set anchor')
         """The horizontal alignment ('left', 'right' or 'center')
         """
         self.__dict__['anchorHoriz'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj._set_anchor_x(value)
         self._needSetText = True
 
     @attributeSetter
@@ -615,6 +623,8 @@ class TextStim(BaseVisualStim, ForeColorMixin, ContainerMixin):
         relative to the text `pos`.
         """
         self.__dict__['anchorVert'] = value
+        if self._pygletTextObj is not None:
+            self._pygletTextObj._set_anchor_y(value)
         self._needSetText = True
 
     @attributeSetter

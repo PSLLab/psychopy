@@ -17,7 +17,8 @@ _localized.update({'text': _translate('Text'),
                    'letterHeight': _translate('Letter height'),
                    'wrapWidth': _translate('Wrap width'),
                    'flip': _translate('Flip (mirror)'),
-                   'languageStyle': _translate('Language style')})
+                   'languageStyle': _translate('Language style'),
+                   'alignText': _translate('Horizontal alignment')})
 
 
 class TextComponent(BaseVisualComponent):
@@ -38,7 +39,7 @@ class TextComponent(BaseVisualComponent):
                  startType='time (s)', startVal=0.0,
                  stopType='duration (s)', stopVal=1.0,
                  flip='None', startEstim='', durationEstim='', wrapWidth='',
-                 languageStyle='LTR'):
+                 languageStyle='LTR', alignText='center'):
         super(TextComponent, self).__init__(exp, parentName, name=name,
                                             units=units,
                                             color=color,
@@ -92,6 +93,11 @@ class TextComponent(BaseVisualComponent):
             allowedVals=['LTR', 'RTL', 'Arabic'],
             hint=_translate("Handle right-to-left (RTL) languages and Arabic reshaping"),
             label=_localized['languageStyle'])
+        self.params['alignText'] = Param(
+            alignText, valType='str', inputType="choice", categ='Formatting',
+            allowedVals=['left', 'center', 'right'],
+            hint=_translate("Text alignment"),
+            label=_localized['alignText'])
 
         del self.params['fillColor']
         del self.params['borderColor']
@@ -117,7 +123,8 @@ class TextComponent(BaseVisualComponent):
                 "wrapWidth=%(wrapWidth)s, ori=%(ori)s, \n"
                 "    color=%(color)s, colorSpace=%(colorSpace)s, "
                 "opacity=%(opacity)s, \n"
-                "    languageStyle=%(languageStyle)s,")
+                "    languageStyle=%(languageStyle)s,"
+                "alignText=%(alignText)s, ")
         buff.writeIndentedLines(code % inits)
         flip = self.params['flip'].val.strip()
         if flip == 'horiz':
@@ -155,7 +162,8 @@ class TextComponent(BaseVisualComponent):
                 "  wrapWidth: %(wrapWidth)s, ori: %(ori)s,\n"
                 "  languageStyle: %(languageStyle)s,\n"
                 "  color: new util.Color(%(color)s),"
-                "  opacity: %(opacity)s,")
+                "  opacity: %(opacity)s,"
+                "  alignText: %(alignText)s,")
         buff.writeIndentedLines(code % inits)
 
         flip = self.params['flip'].val.strip()
