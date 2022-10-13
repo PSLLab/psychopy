@@ -344,7 +344,7 @@ class Flow(list):
                                       "expInfo: expInfo,\n")
         # if we have an html folder then we moved files there so just use that
         # if not, then we'll need to list all known resource files
-        if not self.exp.htmlFolder:
+        if not self.exp.htmlFolder and self.exp.settings.params['Online system'].val != 'JATOS':
             script.writeIndentedLines("resources: [\n")
             script.setIndentLevel(1, relative=True)
             code = ""
@@ -367,7 +367,12 @@ class Flow(list):
             script.setIndentLevel(1, relative=True)
             code = ""
             for idx, resource in enumerate(resourceFiles):
-                temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
+                if "https://" in resource:
+                    name = resource.split('/')[-1]
+                    fullPath = resource
+                    temp = f"{{'name': '{name}', 'path': '{fullPath}'}}"
+                else:
+                    temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
                 code += temp
                 if idx != (len(resourceFiles)-1):
                     code += ",\n"  # Trailing comma
