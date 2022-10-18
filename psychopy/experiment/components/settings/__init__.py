@@ -942,6 +942,7 @@ class SettingsComponent:
                 template = readTextFile("JS_setupExp_jatos_PRP.tmpl")
             code = template.format(
                             params=self.params,
+                            filename=str(self.params['Data filename']),
                             name=self.params['expName'].val,
                             loggingLevel=self.params['logging level'].val.upper(),
                             version=version,
