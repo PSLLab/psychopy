@@ -163,7 +163,7 @@ class TextComponent(BaseVisualComponent):
                 "  languageStyle: %(languageStyle)s,\n"
                 "  color: new util.Color(%(color)s),"
                 "  opacity: %(opacity)s,"
-                "  alignText: %(alignText)s,")
+                "  alignHoriz: %(alignText)s,")
         buff.writeIndentedLines(code % inits)
 
         flip = self.params['flip'].val.strip()
