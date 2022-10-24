@@ -7,8 +7,6 @@ function updateInfo() {{
   expInfo['psychopyVersion'] = '{version}';
   expInfo['OS'] = window.navigator.platform;
 
-  psychoJS.experiment.dataFileName = {filename};
-
   // store frame rate of monitor if we can measure it successfully
   expInfo['frameRate'] = psychoJS.window.getActualFrameRate();
   if (typeof expInfo['frameRate'] !== 'undefined')
@@ -39,6 +37,7 @@ function updateInfo() {{
     jatos.endStudyAndRedirect('https://experiment.psllab.org/static/aborted.html', false, "Study aborted because no id provided.");
     return;
   }}
+  psychoJS.experiment.dataFileName = {filename};
   expInfo['jatos_study_id'] = jatos.studyId;
   expInfo['jatos_component_id'] = jatos.componentId;
   expInfo['jatos_batch_id'] = jatos.batchId;
