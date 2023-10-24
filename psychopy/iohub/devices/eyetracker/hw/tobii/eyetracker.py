@@ -412,25 +412,33 @@ class EyeTracker(EyeTrackerDevice):
 
             event_type = EventConstants.BINOCULAR_EYE_SAMPLE
     
-            left_gaze_x, left_gaze_y = eye_data_event['left_gaze_point_on_display_area']
-            right_gaze_x, right_gaze_y = eye_data_event['right_gaze_point_on_display_area']
-    
+            left_raw_gaze_x, left_raw_gaze_y = eye_data_event['left_gaze_point_on_display_area']
+            right_raw_gaze_x, right_raw_gaze_y = eye_data_event['right_gaze_point_on_display_area']
+            left_gaze_x, left_gaze_y = self._eyeTrackerToDisplayCoords(
+                    (left_raw_gaze_x, left_raw_gaze_y))
+            right_gaze_x, right_gaze_y = self._eyeTrackerToDisplayCoords(
+                    (right_raw_gaze_x, right_raw_gaze_y))
             status = 0
 
-            if eye_data_event['left_gaze_point_validity'] > 0:
-                left_gaze_x, left_gaze_y = self._eyeTrackerToDisplayCoords(
-                    (left_gaze_x, left_gaze_y))
-            else:
+            if eye_data_event['left_gaze_point_validity'] == 0:
                 status += 20
-                
-            if eye_data_event['right_gaze_point_validity'] > 0:
-                right_gaze_x, right_gaze_y = self._eyeTrackerToDisplayCoords(
-                    (right_gaze_x, right_gaze_y))
-            else:
-                status += 2                
+            if eye_data_event['right_gaze_point_validity'] == 0:
+                status += 2
+            if eye_data_event['left_pupil_validity'] == 0:
+                status += 2000      
+            if eye_data_event['right_pupil_validity'] == 0:
+                status += 200
+            if eye_data_event['left_gaze_origin_validity'] == 0:
+                status += 200000
+            if eye_data_event['right_gaze_origin_validity'] == 0:
+                status += 20000        
 
             right_gx, right_gy, right_gz = eye_data_event['right_gaze_origin_in_trackbox_coordinate_system']
             left_gx, left_gy, left_gz = eye_data_event['left_gaze_origin_in_trackbox_coordinate_system']
+            left_gaze_point_ucs_x, left_gaze_point_ucs_y, left_gaze_point_ucs_z = eye_data_event['left_gaze_point_in_user_coordinate_system']
+            right_gaze_point_ucs_x, right_gaze_point_ucs_y, right_gaze_point_ucs_z = eye_data_event['right_gaze_point_in_user_coordinate_system']
+            left_gaze_origin_ucs_x, left_gaze_origin_ucs_y, left_gaze_origin_ucs_z = eye_data_event['left_gaze_origin_in_user_coordinate_system']
+            right_gaze_origin_ucs_x, right_gaze_origin_ucs_y, right_gaze_origin_ucs_z = eye_data_event['right_gaze_origin_in_user_coordinate_system']
 
             confidenceInterval = 0.0
             binocSample = [
@@ -445,16 +453,21 @@ class EyeTracker(EyeTrackerDevice):
                 confidenceInterval,
                 data_delay,
                 0,  # filtered id (always 0 right now)
-                left_gaze_x,
-                left_gaze_y,
-                EyeTrackerConstants.UNDEFINED,
+                left_gaze_point_ucs_x,
+                left_gaze_point_ucs_y,
+                left_gaze_point_ucs_z,
+                left_gaze_origin_ucs_x,
+                left_gaze_origin_ucs_y,
+                left_gaze_origin_ucs_z,
                 left_gx,
                 left_gy,
                 left_gz,
                 EyeTrackerConstants.UNDEFINED,  # Left Eye Angle x
                 EyeTrackerConstants.UNDEFINED,  # Left Eye Angle y
-                EyeTrackerConstants.UNDEFINED,  # Left Camera Sensor position x
-                EyeTrackerConstants.UNDEFINED,  # Left Camera Sensor position y
+                left_gaze_x,  # Left Camera Sensor position x
+                left_gaze_y,
+                left_raw_gaze_x,
+                left_raw_gaze_y,
                 eye_data_event['left_pupil_diameter'],
                 EyeTrackerConstants.PUPIL_DIAMETER_MM,
                 EyeTrackerConstants.UNDEFINED,  # Left pupil size measure 2
@@ -463,17 +476,22 @@ class EyeTracker(EyeTrackerDevice):
                 EyeTrackerConstants.UNDEFINED,  # Left PPD y
                 EyeTrackerConstants.UNDEFINED,  # Left velocity x
                 EyeTrackerConstants.UNDEFINED,  # Left velocity y
-                EyeTrackerConstants.UNDEFINED,  # Left velocity xy
-                right_gaze_x,
-                right_gaze_y,
-                EyeTrackerConstants.UNDEFINED,  # Right Eye Angle z
+                EyeTrackerConstants.UNDEFINED,
+                right_gaze_point_ucs_x,
+                right_gaze_point_ucs_y,
+                right_gaze_point_ucs_z,
+                right_gaze_origin_ucs_x,
+                right_gaze_origin_ucs_y,
+                right_gaze_origin_ucs_z,
                 right_gx,
                 right_gy,
                 right_gz,
                 EyeTrackerConstants.UNDEFINED,  # Right Eye Angle x
                 EyeTrackerConstants.UNDEFINED,  # Right Eye Angle y
-                EyeTrackerConstants.UNDEFINED,  # Right Camera Sensor position x
-                EyeTrackerConstants.UNDEFINED,  # Right Camera Sensor position y
+                right_gaze_x,  # Left Camera Sensor position x
+                right_gaze_y,
+                right_raw_gaze_x,
+                right_raw_gaze_y,
                 eye_data_event['right_pupil_diameter'],
                 EyeTrackerConstants.PUPIL_DIAMETER_MM,
                 EyeTrackerConstants.UNDEFINED,  # Right pupil size measure 2

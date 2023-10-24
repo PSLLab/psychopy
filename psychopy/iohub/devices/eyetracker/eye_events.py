@@ -327,6 +327,7 @@ class EyeSampleEvent(EyeTrackerEvent):
         DeviceEvent.__init__(self, *args, **kwargs)
 
 
+# modified to incorporate all of Tobii's data
 class BinocularEyeSampleEvent(EyeTrackerEvent):
     """The BinocularEyeSampleEvent event represents the eye position and eye
     attribute data collected from one frame or reading of an eye tracker device
@@ -337,16 +338,21 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
     Event Type String: 'BINOCULAR_EYE_SAMPLE'
     """
     _newDataTypes = [
-        ('left_gaze_x', 'f4'),
-        ('left_gaze_y', 'f4'),
-        ('left_gaze_z', 'f4'),
+        ('left_gaze_point_ucs_x', 'f4'),
+        ('left_gaze_point_ucs_y', 'f4'),
+        ('left_gaze_point_ucs_z', 'f4'),
+        ('left_gaze_origin_ucs_x', 'f4'),
+        ('left_gaze_origin_ucs_y', 'f4'),
+        ('left_gaze_origin_ucs_z', 'f4'),
         ('left_eye_cam_x', 'f4'),
         ('left_eye_cam_y', 'f4'),
         ('left_eye_cam_z', 'f4'),
         ('left_angle_x', 'f4'),
         ('left_angle_y', 'f4'),
-        ('left_raw_x', 'f4'),
-        ('left_raw_y', 'f4'),
+        ('left_gaze_x', 'f4'),
+        ('left_gaze_y', 'f4'),
+        ('left_raw_screen_x', 'f4'),
+        ('left_raw_screen_y', 'f4'),
         ('left_pupil_measure1', 'f4'),
         ('left_pupil_measure1_type', 'u1'),
         ('left_pupil_measure2', 'f4'),
@@ -356,16 +362,21 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
         ('left_velocity_x', 'f4'),
         ('left_velocity_y', 'f4'),
         ('left_velocity_xy', 'f4'),
-        ('right_gaze_x', 'f4'),
-        ('right_gaze_y', 'f4'),
-        ('right_gaze_z', 'f4'),
+        ('right_gaze_point_ucs_x', 'f4'),
+        ('right_gaze_point_ucs_y', 'f4'),
+        ('right_gaze_point_ucs_z', 'f4'),
+        ('right_gaze_origin_ucs_x', 'f4'),
+        ('right_gaze_origin_ucs_y', 'f4'),
+        ('right_gaze_origin_ucs_z', 'f4'),
         ('right_eye_cam_x', 'f4'),
         ('right_eye_cam_y', 'f4'),
         ('right_eye_cam_z', 'f4'),
         ('right_angle_x', 'f4'),
         ('right_angle_y', 'f4'),
-        ('right_raw_x', 'f4'),
-        ('right_raw_y', 'f4'),
+        ('right_gaze_x', 'f4'),
+        ('right_gaze_y', 'f4'),
+        ('right_raw_screen_x', 'f4'),
+        ('right_raw_screen_y', 'f4'),
         ('right_pupil_measure1', 'f4'),
         ('right_pupil_measure1_type', 'u1'),
         ('right_pupil_measure2', 'f4'),
@@ -375,7 +386,7 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
         ('right_velocity_x', 'f4'),
         ('right_velocity_y', 'f4'),
         ('right_velocity_xy', 'f4'),
-        ('status', 'u1')
+        ('status', 'u4')
     ]
 
     EVENT_TYPE_ID = EventConstants.BINOCULAR_EYE_SAMPLE
@@ -388,15 +399,18 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
 
         #: The calibrated horizontal left eye position on the calibration plane.
         #: This value is specified in Display Coordinate Type Units.
-        self.left_gaze_x = None
+        self.left_gaze_point_ucs_x = None
 
         #: The calibrated vertical left eye position on the calibration plane.
         #: This value is specified in Display Coordinate Type Units.
-        self.left_gaze_y = None
+        self.left_gaze_point_ucs_y = None
 
         #: The calculated point of gaze in depth. Generally this can only be
         #: provided if binocular reporting is being performed.
-        self.left_gaze_z = None
+        self.left_gaze_point_ucs_z = None
+        self.left_gaze_origin_ucs_x = None
+        self.left_gaze_origin_ucs_y = None
+        self.left_gaze_origin_ucs_z = None
 
         #: The x left eye position in an eye trackers 3D coordinate space.
         #: Generally this field is only available by systems that are also
@@ -428,7 +442,7 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
         #: This is typically reported in some arbitrary unit space that
         #: often has sub-pixel resolution due to image processing techniques
         #: being applied.
-        self.left_raw_x = None
+        self.left_gaze_x = None
 
         #: The non-calibrated y position of the calculated left eye 'center'
         #: on the camera sensor image,
@@ -436,7 +450,9 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
         #: This is typically reported in some arbitrary unit space that
         #: often has sub-pixel resolution due to image processing techniques
         #: being applied.
-        self.left_raw_y = None
+        self.left_gaze_y = None
+        self.left_raw_screen_x = None
+        self.left_raw_screen_y = None
 
         #: A measure related to left pupil size or diameter. The attribute
         #: pupil_measure1_type defines what type the measure represents.
@@ -499,15 +515,18 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
 
         #: The calibrated horizontal right eye position on the calibration plane.
         #: This value is specified in Display Coordinate Type Units.
-        self.right_gaze_x = None
+        self.right_gaze_point_ucs_x = None
 
-        #: The calibrated vertical right eye position on the calibration plane.
+        #: The calibrated vertical left eye position on the calibration plane.
         #: This value is specified in Display Coordinate Type Units.
-        self.right_gaze_y = None
+        self.right_gaze_point_ucs_y = None
 
         #: The calculated point of gaze in depth. Generally this can only be
         #: provided if binocular reporting is being performed.
-        self.right_gaze_z = None
+        self.right_gaze_point_ucs_z = None
+        self.right_gaze_origin_ucs_x = None
+        self.right_gaze_origin_ucs_y = None
+        self.right_gaze_origin_ucs_z = None
 
         #: The x right eye position in an eye trackers 3D coordinate space.
         #: Generally this field is only available by systems that are also
@@ -539,15 +558,17 @@ class BinocularEyeSampleEvent(EyeTrackerEvent):
         #: This is typically reported in some arbitrary unit space that
         #: often has sub-pixel resolution due to image processing techniques
         #: being applied.
-        self.right_raw_x = None
+        self.right_gaze_x = None
 
-        #: The non-calibrated y position of the calculated right eye 'center'
+        #: The non-calibrated y position of the calculated left eye 'center'
         #: on the camera sensor image,
         #: factoring in any corneal reflection adjustments.
         #: This is typically reported in some arbitrary unit space that
         #: often has sub-pixel resolution due to image processing techniques
         #: being applied.
-        self.right_raw_y = None
+        self.right_gaze_y = None
+        self.right_raw_screen_x = None
+        self.right_raw_screen_y = None
 
         #: A measure related to right pupil size or diameter. The attribute
         #: pupil_measure1_type defines what type the measure represents.

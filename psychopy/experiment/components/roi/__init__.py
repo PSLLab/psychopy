@@ -151,7 +151,7 @@ class RegionOfInterestComponent(PolygonComponent):
         # Write start code
         self.writeStartTestCode(buff)
         code = (
-            "%(name)s.status = STARTED\n"
+            "%(name)s.setAutoDraw(True)\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(-1, relative=True)
@@ -272,7 +272,7 @@ class RegionOfInterestComponent(PolygonComponent):
         # Write stop code
         self.writeStopTestCode(buff)
         code = (
-            "%(name)s.status = FINISHED\n"
+            "%(name)s.setAutoDraw(False)\n"
         )
         buff.writeIndentedLines(code % inits)
         buff.setIndentLevel(-2, relative=True)

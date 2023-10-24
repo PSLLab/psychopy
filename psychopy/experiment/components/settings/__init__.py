@@ -1053,12 +1053,15 @@ class SettingsComponent:
         # detect if user wanted an absolute path -- else make absolute:
         filename = self.params['Data filename'].val.lstrip('"\'')
         # (filename.startswith('/') or filename[1] == ':'):
+        buff.writeIndented("if 'filename' not in locals():\n")
+        buff.setIndentLevel(1, relative=True)
         if filename == os.path.abspath(filename):
             buff.writeIndented("filename = %s\n" %
                                self.params['Data filename'])
         else:
             buff.writeIndented("filename = _thisDir + os.sep + %s\n" %
                                self.params['Data filename'])
+        buff.setIndentLevel(-1, relative=True)
 
         # set up the ExperimentHandler
         code = ("\n# An ExperimentHandler isn't essential but helps with "
