@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Utilities for running scripts from the PsychoPy application suite.
@@ -68,7 +68,7 @@ class ScriptProcess:
 
         return self.scriptProcess.isRunning
 
-    def runFile(self, event=None, fileName=None, focusOnExit='runner'):
+    def runFile(self, event=None, fileName=None, focusOnExit='runner', args=None):
         """Begin new process to run experiment.
 
         Parameters
@@ -136,6 +136,15 @@ class ScriptProcess:
         # pyExec = '"' + pyExec + '"'  # use quotes to prevent issues with spaces
         # fullPath = '"' + fullPath + '"'
         command = [pyExec, '-u', fullPath]  # passed to the Job object
+
+        # append args to command
+        if args is None:
+            args = []
+        if isinstance(args, str):
+            args = [args]
+        if not isinstance(args, list):
+            args = list(args)
+        command += args
 
         # create a new job with the user script
         self.scriptProcess = jobs.Job(
@@ -298,15 +307,15 @@ class ScriptProcess:
         self.scriptProcess = None  # reset
 
         # disable the stop button after exiting, no longer needed
-        if hasattr(self, 'stopBtn'):  # relies on this being a mixin class
-            self.stopBtn.Disable()
+        if hasattr(self, 'toolbar'):  # relies on this being a mixin class
+            self.toolbar.buttons['stopBtn'].Disable()
 
         # reactivate the current selection after running
-        if hasattr(self, 'expCtrl') and hasattr(self, 'runBtn'):
+        if hasattr(self, 'expCtrl') and hasattr(self, 'toolbar'):
             itemIdx = self.expCtrl.GetFirstSelected()
             if itemIdx >= 0:
                 self.expCtrl.Select(itemIdx)
-                self.runBtn.Enable()
+                self.toolbar.buttons['runBtn'].Disable()
 
         def _focusOnOutput(win):
             """Subroutine to focus on a given output window."""
@@ -333,6 +342,9 @@ class ScriptProcess:
                 if self.app.runner is not None:
                     _focusOnOutput(self.app.runner)
                     self.app.runner.stdOut.SetFocus()
+                    self.app.runner.panel.ribbon.buttons['pyrun'].Enable()
+                    self.app.runner.panel.ribbon.buttons['pypilot'].Enable()
+                    self.app.runner.panel.ribbon.buttons['pystop'].Disable()
 
         EndBusyCursor()
 

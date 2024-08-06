@@ -17,7 +17,7 @@ np.random.seed(1000)
 
 
 class _BaseTestStairHandler():
-    def setup(self):
+    def setup_method(self):
         self.tmp_dir = mkdtemp(prefix='psychopy-tests-%s' %
                                       type(self).__name__)
 
@@ -37,7 +37,7 @@ class _BaseTestStairHandler():
         if DEBUG:
             print(self.tmp_dir)
 
-    def teardown(self):
+    def teardown_method(self):
         shutil.rmtree(self.tmp_dir)
 
     def simulate(self):

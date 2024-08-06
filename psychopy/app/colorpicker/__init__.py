@@ -76,14 +76,13 @@ class PsychoColorPicker(ColorPickerDialog):
 
         if not self.allowInsert:
             self.cmdInsert.Disable()
+            self.cmdInsert.Hide()
 
         self.allowCopy = allowCopy
 
         if not self.allowCopy:
             self.cmdCopy.Disable()
             self.cmdCopy.Hide()
-            # make insert show 'OK' if the only option
-            self.cmdInsert.Label = u'&OK'
 
         self.SetSizeHints(wx.DefaultSize, wx.DefaultSize)
         self.SetSize(wx.Size(640, 480))
@@ -134,7 +133,7 @@ class PsychoColorPicker(ColorPickerDialog):
         self.sldRedChannel.SetMax(SLIDER_RES)
         self.sldGreenChannel.SetMax(SLIDER_RES)
         self.sldBlueChannel.SetMax(SLIDER_RES)
-        self.sldHueChannel.SetRange(0.0, 360.0)
+        self.sldHueChannel.SetRange(0, 360)
         self.sldStaturationChannel.SetRange(0, SLIDER_RES)
         self.sldValueChannel.SetRange(0, SLIDER_RES)
 
@@ -226,7 +225,7 @@ class PsychoColorPicker(ColorPickerDialog):
             raise ValueError('Color channel format not supported.')
 
         # update the HSV page
-        previewRGB = self.color.rgb255
+        previewRGB = [int(gun) for gun in self.color.rgb255]
         r, g, b = previewRGB
         self.pnlColorPreview.SetBackgroundColour(
             wx.Colour(r, g, b, alpha=wx.ALPHA_OPAQUE))
@@ -241,9 +240,9 @@ class PsychoColorPicker(ColorPickerDialog):
         """
         # get colors and convert to format wxPython controls can accept
         hsvColor = self.color.hsv
-        self.sldHueChannel.SetValue(hsvColor[0])
-        self.sldStaturationChannel.SetValue(hsvColor[1] * SLIDER_RES)
-        self.sldValueChannel.SetValue(hsvColor[2] * SLIDER_RES)
+        self.sldHueChannel.SetValue(int(hsvColor[0]))
+        self.sldStaturationChannel.SetValue(int(hsvColor[1] * SLIDER_RES))
+        self.sldValueChannel.SetValue(int(hsvColor[2] * SLIDER_RES))
 
         # set the value in the new range
         self.spnHueChannel.SetValue(hsvColor[0])

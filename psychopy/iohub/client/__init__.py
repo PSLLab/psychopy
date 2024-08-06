@@ -200,7 +200,7 @@ class ioHubDeviceView():
 
 class ioHubDevices():
     """
-    Provides .name access to the the ioHub device's created when the ioHub
+    Provides .name access to the ioHub device's created when the ioHub
     Server is started. Each iohub device is accessible via a dynamically
     created attribute of this class, the name of which is defined by the
     device configuration 'name' setting. Each device attribute is an instance
@@ -249,7 +249,7 @@ class ioHubConnection():
         mouse=hub.devices.mouse
         mouse_position = mouse.getPosition()
 
-        print 'mouse position: ', mouse_position
+        print('mouse position: ', mouse_position)
 
         # Returns something like:
         # >> mouse position:  [-211.0, 371.0]
@@ -264,9 +264,10 @@ class ioHubConnection():
                     ioHubConfig)
 
         if ioHubConnection.ACTIVE_CONNECTION is not None:
-            raise RuntimeError('An existing ioHubConnection is already open.'
-                                 ' Use ioHubConnection.getActiveConnection() '
-                                 'to access it; or use ioHubConnection.quit() '
+            raise RuntimeError('An existing ioHubConnection is already open. Use '
+                                 'iohub.client.ioHubConnection.getActiveConnection() '
+                                 'to access it; or use '
+                                 'iohub.ioHubConnection.getActiveConnection().quit() '
                                  'to close it.')
         Computer.psychopy_process = psutil.Process()
 
@@ -417,13 +418,19 @@ class ioHubConnection():
             None
 
         """
-        if device_label.lower() == 'all':
-            self.allEvents = []
-            self._sendToHubServer(('RPC', 'clearEventBuffer', [True, ]))
-            try:
-                self.getDevice('keyboard')._clearLocalEvents()
-            except:
-                pass
+        if device_label and isinstance(device_label, str):
+            device_label = device_label.lower()
+            if device_label == 'all':
+                self.allEvents = []
+                self._sendToHubServer(('RPC', 'clearEventBuffer', [True, ]))
+                try:
+                    self.getDevice('keyboard')._clearLocalEvents()
+                except:
+                    pass
+            else:
+                d = self.devices.getDevice(device_label)
+                if d:
+                    d.clearEvents()
         elif device_label in [None, '', False]:
             self.allEvents = []
             self._sendToHubServer(('RPC', 'clearEventBuffer', [False, ]))
@@ -432,9 +439,8 @@ class ioHubConnection():
             except:
                 pass
         else:
-            d = self.devices.getDevice(device_label)
-            if d:
-                d.clearEvents()
+            raise ValueError(
+                'Invalid device_label value: {}'.format(device_label))
 
     def sendMessageEvent(self, text, category='', offset=0.0, sec_time=None):
         """
@@ -712,6 +718,23 @@ class ioHubConnection():
         testing time bases between processes only.
         """
         return self._sendToHubServer(('RPC', 'getTime'))[2]
+
+    def syncClock(self, clock):
+        """
+        Synchronise ioHub's internal clock with a given instance of MonotonicClock.
+        """
+        params = {
+            '_timeAtLastReset': clock._timeAtLastReset,
+            '_epochTimeAtLastReset': clock._epochTimeAtLastReset,
+            'format': clock.format,
+        }
+        if isinstance(params['format'], type):
+            params['format'] = params['format'].__name__
+        # sync clock in this process
+        for key, value in params.items():
+            setattr(Computer.global_clock, key, value)
+        # sync clock in server process
+        return self._sendToHubServer(('RPC', 'syncClock', (params,)))
 
     def setPriority(self, level='normal', disable_gc=False):
         """See Computer.setPriority documentation, where current process will
@@ -1068,8 +1091,12 @@ class ioHubConnection():
                 dev_cls_name = dev_cls_name[cls_name_start + 1:]
             else:
                 dev_mod_pth = '{0}{1}'.format(dev_mod_pth, dev_name)
-
-            dev_import_result = import_device(dev_mod_pth, dev_cls_name)
+            # try to import EyeTracker class from given path
+            try:
+                dev_import_result = import_device(dev_mod_pth, dev_cls_name)
+            except ModuleNotFoundError:
+                # if not found, try importing from root (may have entry point)
+                dev_import_result = import_device("psychopy.iohub.devices", dev_cls_name)
             dev_cls, dev_cls_name, evt_cls_list = dev_import_result
 
             DeviceConstants.addClassMapping(dev_cls)
@@ -1097,9 +1124,7 @@ class ioHubConnection():
             if local_class:
                 d = local_class(self, dev_cls_name, dev_config)
             else:
-                full_device_class_name = getFullClassName(dev_cls)[len('psychopy.iohub.devices.'):]
-                full_device_class_name = full_device_class_name.replace('eyetracker.EyeTracker', 'EyeTracker')
-                d = ioHubDeviceView(self, full_device_class_name, dev_cls_name, dev_config)
+                d = ioHubDeviceView(self, dev_mod_pth + "." + dev_cls_name, dev_cls_name, dev_config)
 
             self.devices.addDevice(name, d)
             return d
@@ -1294,7 +1319,9 @@ class ioHubConnection():
                     self.udp_client.sendTo(('STOP_IOHUB_SERVER',))
                     self.udp_client.close()
                 if Computer.iohub_process:
-                    r = Computer.iohub_process.wait(timeout=5)
+                    # This wait() used to have timeout=5, removing it to allow
+                    # sufficient time for all iohub devices to be closed.
+                    r = Computer.iohub_process.wait()
                     print('ioHub Server Process Completed With Code: ', r)
             except TimeoutError:
                 print('Warning: TimeoutExpired, Killing ioHub Server process.')
@@ -1318,6 +1345,10 @@ class ioHubConnection():
         Check if an iohub server reply contains an error that should be raised
         by the local process.
         """
+        # is it an ioHub error object?
+        if isinstance(data, ioHubError):
+            return True
+
         if isIterable(data) and len(data) > 0:
             d0 = data[0]
             if isIterable(d0):
@@ -1333,7 +1364,8 @@ class ioHubConnection():
     def _osxKillAndFreePort(self):
         server_udp_port = self._iohub_server_config.get('udp_port', 9000)
         p = subprocess.Popen(['lsof', '-i:%d'%server_udp_port, '-P'],
-                             stdout=subprocess.PIPE)
+                             stdout=subprocess.PIPE,
+                             encoding='utf-8')
         lines = p.communicate()[0]
         for line in lines.splitlines():
             if line.startswith('Python'):

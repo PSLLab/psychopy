@@ -61,7 +61,7 @@ class ROI(ShapeStim):
                  debug=False,
                  shape="rectangle",
                  units='', pos=(0, 0), size=(1, 1), anchor="center", ori=0.0,
-                 autoLog=None, autoDraw=False):
+                 depth=0, autoLog=None, autoDraw=False):
 
         # Create red polygon which doesn't draw if `debug == False`
         ShapeStim.__init__(self, win, name=name,
@@ -69,6 +69,7 @@ class ROI(ShapeStim):
                          vertices=shape,
                          fillColor='white', lineColor="#F2545B", lineWidth=2, opacity=0.5,
                          autoLog=autoLog, autoDraw=autoDraw)
+        self.depth = depth
         self.debug = debug
         if device is None:
             self.device = Mouse(win=win)

@@ -5,18 +5,21 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 __all__ = ['MovieStim']
 
 
 import ctypes
+import os.path
 from pathlib import Path
 
 from psychopy import prefs
-from psychopy.tools.filetools import pathToString
-from psychopy.visual.basevisual import BaseVisualStim, ContainerMixin, ColorMixin
+from psychopy.tools.filetools import pathToString, defaultStim
+from psychopy.visual.basevisual import (
+    BaseVisualStim, DraggingMixin, ContainerMixin, ColorMixin
+)
 from psychopy.constants import FINISHED, NOT_STARTED, PAUSED, PLAYING, STOPPED
 
 from .players import getMoviePlayer
@@ -43,7 +46,7 @@ PREFERRED_VIDEO_LIB = 'ffpyplayer'
 #
 
 
-class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
+class MovieStim(BaseVisualStim, DraggingMixin, ColorMixin, ContainerMixin):
     """Class for presenting movie clips as stimuli.
 
     Parameters
@@ -63,6 +66,8 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
     size : ArrayLike or None
         Size of the video frame on the window in `units`. If `None`, the native
         size of the video will be used.
+    draggable : bool
+        Can this stimulus be dragged by a mouse click?
     flipVert : bool
         If `True` then the movie will be top-bottom flipped.
     flipHoriz : bool
@@ -86,6 +91,7 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
                  pos=(0.0, 0.0),
                  ori=0.0,
                  anchor="center",
+                 draggable=False,
                  flipVert=False,
                  flipHoriz=False,
                  color=(1.0, 1.0, 1.0),  # remove?
@@ -115,16 +121,17 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
             win, units=units, name=name, autoLog=False)
 
         # drawing stuff
+        self.draggable = draggable
         self.flipVert = flipVert
         self.flipHoriz = flipHoriz
         self.pos = pos
         self.ori = ori
         self.size = size
         self.depth = depth
-        self.opacity = opacity
         self.anchor = anchor
         self.colorSpace = colorSpace
         self.color = color
+        self.opacity = opacity
 
         # playback stuff
         self._filename = pathToString(filename)
@@ -133,9 +140,10 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self.loop = loop
         self._recentFrame = None
         self._autoStart = autoStart
+        self._isLoaded = False
 
         # OpenGL data
-        self.interpolate = True
+        self.interpolate = interpolate
         self._texFilterNeedsUpdate = True
         self._metadata = NULL_MOVIE_METADATA
         self._pixbuffId = GL.GLuint(0)
@@ -149,6 +157,8 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         if self._filename:  # load a movie if provided
             self.loadMovie(self._filename)
 
+        self.autoLog = autoLog
+
     @property
     def filename(self):
         """File name for the loaded video (`str`)."""
@@ -159,6 +169,8 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self.loadMovie(value)
 
     def setMovie(self, value):
+        if self._isLoaded:
+            self.unload()
         self.loadMovie(value)
 
     @property
@@ -194,17 +206,52 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
         """
         # If given `default.mp4`, sub in full path
-        if filename == "default.mp4":
-            filename = Path(prefs.paths['resources']) / "default.mp4"
-        # If given a recording component, use its last clip
-        if hasattr(filename, "lastClip"):
-            filename = filename.lastClip
+        if isinstance(filename, str):
+            # alias default names (so it always points to default.png)
+            if filename in defaultStim:
+                filename = Path(prefs.paths['assets']) / defaultStim[filename]
+
+            # check if the file has can be loaded
+            if not os.path.isfile(filename):
+                raise FileNotFoundError("Cannot open movie file `{}`".format(
+                    filename))
+        else:
+            # If given a recording component, use its last clip
+            if hasattr(filename, "lastClip"):
+                filename = filename.lastClip
 
         self._filename = filename
         self._player.load(self._filename)
 
         self._freeBuffers()  # free buffers (if any) before creating a new one
         self._setupTextureBuffers()
+
+        self._isLoaded = True
+
+    def load(self, filename):
+        """Load a movie file from disk (alias of `loadMovie`).
+
+        Parameters
+        ----------
+        filename : str
+            Path to movie file. Must be a format that FFMPEG supports.
+
+        """
+        self.loadMovie(filename=filename)
+
+    def unload(self, log=True):
+        """Stop and unload the movie.
+
+        Parameters
+        ----------
+        log : bool
+            Log this event.
+
+        """
+        self._player.stop(log=log)
+        self._player.unload()
+        self._freeBuffers()  # free buffer before creating a new one
+        self._isLoaded = False
 
     @property
     def frameTexture(self):
@@ -228,7 +275,9 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
         """
         # get the current movie frame for the video time
-        self._recentFrame = self._player.getMovieFrame()
+        newFrameFromPlayer = self._player.getMovieFrame()
+        if newFrameFromPlayer is not None:
+            self._recentFrame = newFrameFromPlayer
 
         # only do a pixel transfer on valid frames
         if self._recentFrame is not None:
@@ -259,7 +308,7 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         self._selectWindow(self.win if win is None else win)
 
         # handle autoplay
-        if self._autoStart and self.status == NOT_STARTED:
+        if self._autoStart and self.isNotStarted:
             self.play()
 
         # update the video frame and draw it to a quad
@@ -274,34 +323,54 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
     @property
     def isPlaying(self):
-        """`True` if the video is presently playing (`bool`)."""
+        """`True` if the video is presently playing (`bool`).
+        """
         # Status flags as properties are pretty useful for users since they are
         # self documenting and prevent the user from touching the status flag
         # attribute directly.
         #
-        return self.status == PLAYING
+        if self._player is not None:
+            return self._player.isPlaying
+
+        return False
 
     @property
     def isNotStarted(self):
         """`True` if the video may not have started yet (`bool`). This status is
-        given after a video is loaded and play has yet to be called."""
-        return self.status == NOT_STARTED
+        given after a video is loaded and play has yet to be called.
+        """
+        if self._player is not None:
+            return self._player.isNotStarted
+
+        return True
 
     @property
     def isStopped(self):
-        """`True` if the video is stopped (`bool`)."""
-        return self.status == STOPPED
+        """`True` if the video is stopped (`bool`). It will resume from the
+        beginning if `play()` is called.
+        """
+        if self._player is not None:
+            return self._player.isStopped
+
+        return False
 
     @property
     def isPaused(self):
-        """`True` if the video is presently paused (`bool`)."""
-        return self.status == PAUSED
+        """`True` if the video is presently paused (`bool`).
+        """
+        if self._player is not None:
+            return self._player.isPaused
+
+        return False
 
     @property
     def isFinished(self):
-        """`True` if the video is finished (`bool`)."""
-        # why is this the same as STOPPED?
-        return self.status == FINISHED
+        """`True` if the video is finished (`bool`).
+        """
+        if self._player is not None:
+            return self._player.isFinished
+
+        return False
 
     def play(self, log=True):
         """Start or continue a paused movie from current position.
@@ -313,8 +382,8 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
 
         """
         # get the absolute experiment time the first frame is to be presented
-        if self.status == NOT_STARTED:
-            self._player.volume = self._volume
+        # if self.status == NOT_STARTED:
+        #     self._player.volume = self._volume
 
         self._player.play(log=log)
 
@@ -330,12 +399,10 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """
         self._player.pause(log=log)
 
-    def stop(self, log=True):
-        """Stop the current point in the movie (sound will stop, current frame
-        will not advance). Once stopped the movie cannot be restarted - it must
-        be loaded again.
-
-        Use `pause()` instead if you may need to restart the movie.
+    def toggle(self, log=True):
+        """Switch between playing and pausing the movie. If the movie is playing,
+        this function will pause it. If the movie is paused, this function will
+        play it.
 
         Parameters
         ----------
@@ -343,8 +410,25 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
             Log this event.
 
         """
-        self._player.stop(log=log)
-        self._freeBuffers()  # free buffer before creating a new one
+        if self.isPlaying:
+            self.pause()
+        else:
+            self.play()
+
+    def stop(self, log=True):
+        """Stop the current point in the movie (sound will stop, current frame
+        will not advance and remain on-screen). Once stopped the movie can be
+        restarted from the beginning by calling `play()`.
+
+        Parameters
+        ----------
+        log : bool
+            Log this event.
+
+        """
+        # stop should reset the video to the start and pause
+        if self._player is not None:
+            self._player.stop()
 
     def seek(self, timestamp, log=True):
         """Seek to a particular timestamp in the movie.
@@ -370,11 +454,6 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         log : bool
             Log this event.
 
-        Returns
-        -------
-        float
-            Timestamp after rewinding the video.
-
         """
         self._player.rewind(seconds, log=log)
 
@@ -389,22 +468,14 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         log : bool
             Log this event.
 
-        Returns
-        -------
-        float
-            Timestamp at new position after fast forwarding the video.
-
         """
         self._player.fastForward(seconds, log=log)
 
-    def replay(self, autoStart=True, log=True):
+    def replay(self, log=True):
         """Replay the movie from the beginning.
 
         Parameters
         ----------
-        autoStart : bool
-            Start playback immediately. If `False`, you must call `play()`
-            afterwards to initiate playback.
         log : bool
             Log this event.
 
@@ -415,7 +486,7 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
           you would like to restart the movie without reloading.
 
         """
-        self._player.replay(autoStart, log=log)
+        self._player.replay(log=log)
 
     # --------------------------------------------------------------------------
     # Audio stream control methods
@@ -534,6 +605,13 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         return self._player.metadata.size
 
     @property
+    def origSize(self):
+        """
+        Alias of videoSize
+        """
+        return self.videoSize
+
+    @property
     def frameSize(self):
         """Size of the video `(w, h)` in pixels (`tuple`). Alias of `videoSize`.
         """
@@ -597,7 +675,7 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         """
         # get the size of the movie frame and compute the buffer size
         vidWidth, vidHeight = self._player.getMetadata().size
-        nBufferBytes = vidWidth * vidHeight * 3
+        nBufferBytes = vidWidth * vidHeight * 4
 
         # Create the pixel buffer object which will serve as the texture memory
         # store. Pixel data will be copied to this buffer each frame.
@@ -618,14 +696,12 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
-            GL.GL_RGB8,
+            GL.GL_RGBA8,
             vidWidth, vidHeight,  # frame dims in pixels
             0,
-            GL.GL_RGB,
+            GL.GL_BGRA,
             GL.GL_UNSIGNED_BYTE,
             None)
-
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
 
         # setup texture filtering
         if self.interpolate:
@@ -654,7 +730,7 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         # get the size of the movie frame and compute the buffer size
         vidWidth, vidHeight = self._player.getMetadata().size
 
-        nBufferBytes = vidWidth * vidHeight * 3
+        nBufferBytes = vidWidth * vidHeight * 4
 
         # bind pixel unpack buffer
         GL.glBindBuffer(GL.GL_PIXEL_UNPACK_BUFFER, self._pixbuffId)
@@ -691,12 +767,11 @@ class MovieStim(BaseVisualStim, ColorMixin, ContainerMixin):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._textureId)
 
         # copy the PBO to the texture
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         GL.glTexSubImage2D(
             GL.GL_TEXTURE_2D, 0, 0, 0,
             vidWidth, vidHeight,
-            GL.GL_RGB,
-            GL.GL_UNSIGNED_BYTE,
+            GL.GL_BGRA,
+            GL.GL_UNSIGNED_INT_8_8_8_8_REV,
             0)  # point to the presently bound buffer
 
         # update texture filtering only if needed

@@ -5,8 +5,8 @@ Created on Mon Dec 15 15:22:48 2014
 @author: lpzjwp
 """
 from psychopy import visual
-from psychopy.hardware import crs
-from psychopy.tests import skip_under_vm, _vmTesting
+from psychopy.tools import systemtools
+from psychopy.tests import skip_under_vm
 import numpy as np
 
 try:
@@ -58,9 +58,15 @@ expectedVals = {
 
 @skip_under_vm
 def test_bitsShaders():
+    try:
+        from psychopy.hardware.crs.bits import BitsSharp
+    except (ModuleNotFoundError, ImportError):
+        return
+
     win = visual.Window([1024, 768], fullscr=0, screen=1, useFBO=True,
                         autoLog=True)
-    bits = crs.bits.BitsSharp(win, mode='bits++', noComms=True)
+
+    bits = BitsSharp(win, mode='bits++', noComms=True)
 
     # draw a ramp across the screenexpectedVals = range(256)
     w, h = win.size
@@ -89,15 +95,16 @@ def test_bitsShaders():
             #fr = np.array(win._getFrame(buffer='back').transpose(Image.ROTATE_270))
             win.flip()
             fr = np.array(win._getFrame(buffer='front').transpose(Image.ROTATE_270))
-            if not _vmTesting:
-                assert np.alltrue(thisExpected['lowR'] == fr[0:10, -1, 0])
-                assert np.alltrue(thisExpected['lowG'] == fr[0:10, -1, 1])
-                assert np.alltrue(thisExpected['highR'] == fr[250:256, -1, 0])
-                assert np.alltrue(thisExpected['highG'] == fr[250:256, -1, 1])
+            if not systemtools.isVM_CI():
+                assert np.all(thisExpected['lowR'] == fr[0:10, -1, 0])
+                assert np.all(thisExpected['lowG'] == fr[0:10, -1, 1])
+                assert np.all(thisExpected['highR'] == fr[250:256, -1, 0])
+                assert np.all(thisExpected['highG'] == fr[250:256, -1, 1])
 
                 print('R', repr(fr[0:10,-1,0]), repr(fr[250:256,-1,0]))
                 print('G', repr(fr[0:10,-1,1]), repr(fr[250:256,-1,0]))
             #event.waitKeys()
+
 
 if __name__=='__main__':
     test_bitsShaders()

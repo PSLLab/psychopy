@@ -5,7 +5,7 @@
 #
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 __all__ = ['normalize',
@@ -794,6 +794,32 @@ def angleTo(v, point, degrees=True, out=None, dtype=None):
     return np.degrees(angle) if degrees else angle
 
 
+def sortClockwise(verts):
+    """
+    Sort vertices clockwise from 12 O'Clock (aka vertex (0, 1)).
+
+    Parameters
+    ==========
+    verts : array
+        Array of vertices to sort
+    """
+    # Blank array of angles
+    angles = []
+    # Calculate angle of each vertex
+    for vert in verts:
+        # Get angle
+        ang = angleTo(v=[0, 1], point=vert)
+        # Flip angle if we're past 6 O'clock
+        if vert[0] < 0:
+            ang = 360 - ang
+        # Append to angles array
+        angles.append(ang)
+    # Sort vertices by angles array values
+    verts = [x for _, x in sorted(zip(angles, verts), key=lambda pair: pair[0])]
+
+    return verts
+
+
 def surfaceNormal(tri, norm=True, out=None, dtype=None):
     """Compute the surface normal of a given triangle.
 
@@ -1185,7 +1211,7 @@ def fitBBox(points, dtype=None):
     """Fit an axis-aligned bounding box around points.
 
     This computes the minimum and maximum extents for a bounding box to
-    completely enclose `points`. Keep in mind the the output in bounds are
+    completely enclose `points`. Keep in mind the output in bounds are
     axis-aligned and may not optimally fits the points (i.e. fits the points
     with the minimum required volume). However, this should work well enough for
     applications such as visibility testing (see
@@ -2499,7 +2525,7 @@ def alignTo(v, t, out=None, dtype=None):
     qr[nonparallel, :3] = cross(v2d[nonparallel], b[nonparallel], dtype=dtype)
     qr[nonparallel, 3] = cosHalfAngle[nonparallel]
 
-    if np.alltrue(nonparallel):  # don't bother handling special cases
+    if np.all(nonparallel):  # don't bother handling special cases
         return toReturn + 0.0
 
     # deal with cases where the vectors are facing exact opposite directions
@@ -2507,13 +2533,13 @@ def alignTo(v, t, out=None, dtype=None):
     rx = np.logical_and(~ry, ~nonparallel)
 
     getLength = lambda x, y: np.sqrt(x * x + y * y)
-    if not np.alltrue(rx):
+    if not np.all(rx):
         invLength = getLength(v2d[ry, 0], v2d[ry, 2])
         invLength = np.where(invLength > 0.0, 1.0 / invLength, invLength)  # avoid x / 0
         qr[ry, 0] = -v2d[ry, 2] * invLength
         qr[ry, 2] = v2d[ry, 0] * invLength
 
-    if not np.alltrue(ry):  # skip if all the same edge case
+    if not np.all(ry):  # skip if all the same edge case
         invLength = getLength(v2d[rx, 1], v2d[rx, 2])
         invLength = np.where(invLength > 0.0, 1.0 / invLength, invLength)
         qr[rx, 1] = v2d[rx, 2] * invLength

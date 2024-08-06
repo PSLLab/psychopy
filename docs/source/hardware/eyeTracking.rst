@@ -5,7 +5,27 @@ Communicating with an Eyetracker
 
 PsychoPy has components that allow you to connect and communicate with eyetrackers directly from Builder - without any code! These steps will guide you through how to set up, calibrate, and record from your eyetracker.
 
-Step one: Know Your Eyetracker
+Step one: Select your plugin
+-------------------------------------------------------------
+`If you are using a version of PsychoPy from 2022 or earlier, skip this step and go straight to step two`
+
+To use your eye tracker, you will need to install a plugin. PsychoPy supports many of the commonly used eye trackers. To find out whether yours is supported, follow these steps:
+
+* Under the `Tools` tab, select `Plugin/packages Manager`
+* Find your eye tracker in the plugins list and select `install`
+
+.. figure:: /images/PluginsAndPackagesManager.png
+
+If you would like to install a plugin from a file (e.g. a .whl file):
+
+* In the Plugin and Packages Manager, select the `Packages` tab
+* At the bottom left of the window, select whether you would like to install from a file or via the PIP terminal
+* Select the relevant file or run a PIP install
+* Restart PsychoPy to use the newly installed plugin
+
+To find out more about plugins, visit our `plugins website <https://plugins.psychopy.org/basics.html>`_
+
+Step two: Know Your Eyetracker
 -------------------------------------------------------------
 
 PsychoPy supports many of the commonly used eyetrackers, you can find out if yours is supported by following these steps:
@@ -19,7 +39,7 @@ PsychoPy supports many of the commonly used eyetrackers, you can find out if you
 * When you've found your eyetracker, just select it and click `OK`.
 * If you want to test out your eyetracking experiment but don't have an eyetracker with you, you can select `MouseGaze`. This will allow your mouse cursor to act as a gaze point on your screen, and so allow you to simulate eye movements without using an eyetracker. Then, when you're ready to use your eyetracker, you can just select it from the Experiment Settings and run your experiment in the same way.
 
-Step two: Set up your Eyetracker
+Step three: Set up your Eyetracker
 -------------------------------------------------------------
 When you've selected your eyetracker from the drop-down menu, a set of options that are specific to that device will appear, such as the model and serial number of your device. Here we will follow through with the MouseGaze options:
 
@@ -46,7 +66,17 @@ The general protocol you will see is shown below.
 
 .. figure:: /images/eyelink_calibration_flow.png
 
-    The set of screens that will appear on your experiment presentation screen during calibration/validation, and what to press when.
+    The set of screens that will appear on your experiment presentation screen during calibration/validation, and what to press when. If pressing the Escape key does not work, try pressing the 'O' key. 
+
+For further information about EyeLink installation and use, look at `SR Research's learning resources <https://www.sr-research.com/support-options/learning-resources/>`_
+
+Tobii
+-----------
+
+When plugging in your Tobii you will first want to download and install the `free Eyetracker Manager software <https://www.tobii.com/products/software/applications-and-developer-kits/tobii-pro-eye-tracker-manager#downloads>`_. We'de recommend conducting a quick calibration using that software so that you arre confident that your Tobii is connected and working, independantly of your PsychoPy experiment.
+
+In PsychoPy, then click "Experiment Settings" > "Eyetracking". Select "Tobii Technology" in the Eyetracker device drop down and write the name of your device (e.g. "Tobii Pro Nano", "Tobii Pro Fusion", "Tobii Pro Spectrum", "Tobii TX300").  The other settings in this section are optional.
+
 
 Step three: Add Eyetracker components to your Builder experiment
 --------------------------------------------------------------------
@@ -59,7 +89,7 @@ You can find the eyetracker components in the eyetracker component drop-down on 
     You can choose whether you want this component to just start your eyetracker recording, just stop the recording, or whether you want the component to start the recording and then stop it after a certain duration.
 
 .. note::
-	If you've started the eyetracker recording at the start of your experiment, be sure to add in another eyetracker record component at the end of your experiment to stop the recording too!
+    If you've started the eyetracker recording at the start of your experiment, be sure to add in another eyetracker record component at the end of your experiment to stop the recording too!
 
 * If you want to record information on gaze position, or you want your trial to move on when your participant has looked at or away from a target, you'll need to add in an **ROI component**. The ROI component has lots of options - you can choose what you want to happen when the participant looks at or away from a certain part of the screen, what shape your ROI is etc. All of which can also be defined in your conditions file, just like any other component. Choose the options that fit the needs of your experiment. Here, the component is set such that when a participant looks at a circular target for at least 0.1s (set by the min look time), the trial will end:
 
@@ -103,8 +133,65 @@ What about the data?
     The data output will vary according to what you've asked PsychoPy to record about gaze.
 
 * PsychoPy also provides the option to save your eyetracking data as a hdf5 file, which is particularly useful if you are recording a large amount of eyetracking data, such as gaze position on every frame for example.
-* To save eyetracking data as a hdf5 file, just click on the Experiment Settings icon, and in the 'Data' tab check the box next to 'Save hdf5 file'.
+* To save eyetracking data as a hdf5 file, just click on the Experiment Settings icon, and in the 'Data' tab check the box next to 'Save hdf5 file'. Hdf5 files can be inspected using a free software such as `hdfView <https://www.hdfgroup.org/>`_ or, alternatively, you can extract data from your hdf5 files using the python h5py library. For example, the code below could be used to write data stored in a hdf5 file to a csv using a combination of h5py and pandas::
 
+    import h5py
+    import pandas as pd
+
+    filename = "data/becca2_becca_track_2022-12-12_17h36.27.977.hdf5"
+    id = filename.split("/")[1].split("_")[0]
+    with h5py.File(filename, "r") as f:
+
+        # get the list of eyetracker measures available in the hdf5
+        eyetracker_measures = list(f['data_collection']['events']['eyetracker'])
+
+        for measure in eyetracker_measures:
+            print('Extracting events of type: ', measure)
+            data_collection = list(f['data_collection']['events']['eyetracker'][measure])
+            if len(data_collection)>0:
+                column_headers = data_collection[0].dtype.descr
+                cols = []
+                data_dict = {}
+                for ch in column_headers:
+                    cols.append(ch[0])
+                    data_dict[ch[0]] = []
+
+                for row in data_collection:
+                    for i, col in enumerate(cols):
+                        data_dict[col].append(row[i])
+                pd_data = pd.DataFrame.from_dict(data_dict)
+                pd_data.to_csv(id+'_'+measure+'.csv', index = False)
+            else:
+                print('No data for type', measure, ' moving on')
+
+Finally, you could plot data from the above, for instance, as a heatmap::
+
+
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    filename = '2_BinocularEyeSampleEvent.csv'
+
+    # read as pandas dataframe
+    data = pd.read_csv(filename)
+
+    # convert pandas arrays to no arrays
+    x = data['left_gaze_x'].to_numpy()
+    y = data['left_gaze_y'].to_numpy()
+
+    # remove nan values
+    x = x[~np.isnan(x)]
+    y = y[~np.isnan(y)]
+
+    # plot x and y values as a heat map
+    heatmap, xedges, yedges = np.histogram2d(x, y, bins=50)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+
+    # show the plot 
+    plt.clf()
+    plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.show()
 
 If there is a problem - We want to know!
 -------------------------------------------------------------

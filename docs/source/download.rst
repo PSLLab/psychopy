@@ -10,16 +10,15 @@ For the easiest installation download and install the Standalone package.
 
 .. raw:: html
 
-   <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@0/dist/ua-parser.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@1/dist/ua-parser.min.js"></script>
    <script>
 
     let filename;
     let url;
-    let version='2022.2.3';
+    let version='2024.1.5';
 
     let clientInfo = UAParser(navigator.userAgent);
     var osLabel;
-    var os = clientInfo.os.name;
     var arch = clientInfo.cpu.architecture;
     // create the platform dependent strings
     if (navigator.platform == 'Win32' && clientInfo.cpu.architecture == 'amd64') {
@@ -27,8 +26,8 @@ For the easiest installation download and install the Standalone package.
       filename = '  Standalone PsychoPy<sup>®</sup> '+version+' for 64bit Windows (using Python3.8)';
       url = 'https://github.com/psychopy/psychopy/releases/download/'+version+'/StandalonePsychoPy-'+version+'-win64.exe';
     }
-    else if (navigator.platform == 'MacIntel') {
-      osLabel = clientInfo.os.name+" "+clientInfo.os.version;
+    else if (clientInfo.os.name == 'Mac OS') {
+      osLabel = 'macOS';
       filename = '  Standalone PsychoPy '+version+' for macOS';
       url = 'https://github.com/psychopy/psychopy/releases/download/'+version+'/StandalonePsychoPy-'+version+'-macOS.dmg';
     }
@@ -71,18 +70,18 @@ to manually install |PsychoPy| and all it's dependencies to your own installatio
 of Python.
 
 The steps are to fetch Python. This method should work on a range of versions of Python
-but **we strongly recommend you use Python 3.8**. Older Python versions are no longer being tested and
+but **we strongly recommend you use Python 3.10 or 3.8**. Older Python versions are no longer being tested and
 may not work correctly. Newer Python versions may not have wheels for all the necessary
-depedencies even we believe that PsychoPy's code, itself, is compatible all the way up
-to Python 3.10.
+dependencies even though we believe that PsychoPy's code, itself, is compatible up
+to at least Python 3.10.
 
-You can install |PsychoPy| and its dependencies (more than you'll strictly need)
+You can install |PsychoPy| and its dependencies (more than you'll strictly need, depending on the features you use)
 by::
 
   pip install psychopy
 
 If you prefer *not* to install *all* the dependencies (e.g. because the platform or Python version you're
-on doesn't have that depedency easily available) then you could do::
+on doesn't have that dependency easily available) then you could do::
 
   pip install psychopy --no-deps
 
@@ -94,6 +93,8 @@ may want to try the `unofficial packages by Christoph Gohlke <https://www.lfd.uc
 brew install
 ~~~~~~~~~~~~~~~~~
 
+This is a user-contributed option and may or may not work.
+
 On a MacOS machine, `brew` can be used to install |PsychoPy|::
 
   brew install --cask psychopy
@@ -102,6 +103,11 @@ On a MacOS machine, `brew` can be used to install |PsychoPy|::
 
 Linux
 ~~~~~~~~~~~~~~~~~
+
+We are aware that the procedure for installing on Linux is often rather painful. 
+This is not the platform that the core PsychoPy developers currently use so support
+is less good than on some platforms. Feel free to jump in and help improve it as a
+contributor! :-) 
 
 There used to be neurodebian and Gentoo packages for |PsychoPy| but these are both
 badly outdated. We'd recommend you do:
@@ -123,6 +129,12 @@ and having downloaded the right wheel you can then install it with something lik
 
 wxPython>4.0 and doesn't have universal wheels yet which is why you have to
 find and install the correct wheel for your particular flavor of linux.
+
+For some reasons wxPython (wx.html2) is using an older version of libwebkitgtk
+e.g. psychopy will not show up
+to fix this (of our own risk):
+sudo add-apt-repository 'deb http://archive.ubuntu.com/ubuntu bionic main universe'
+sudo apt install -t bionic libwebkitgtk-1.0-0
 
 **Building Python PsychToolbox bindings:**
 
@@ -148,27 +160,22 @@ as needed:
 Anaconda and Miniconda
 ~~~~~~~~~~~~~~~~~~~~~~
 
-We provide an `environment file <https://raw.githubusercontent.com/psychopy/psychopy/master/conda/psychopy-env.yml>`_
-that can be used to install |PsychoPy| and its dependencies. Download the file,
-open your terminal, navigate to the directory you saved the file to, and run::
+Support for conda was contributed and is badly outdated but you may be able to 
+get it working using `pip install` within your conda environment. 
 
-  conda env create -n psychopy -f psychopy-env.yml
+Generally we recommend you use StandalonePsychoPy instead, for experiment creation,
+as an entirely separate app, and use your conda installation for other (e.g. analysis)
+scripts.
 
-This will create an environment named ``psychopy``. On Linux, the ``wxPython`` dependency of |PsychoPy| is linked
-against ``webkitgtk``, which needs to be installed manually, e.g. via ``sudo apt install libwebkitgtk-1.0`` on Debian-based
-systems like Ubuntu.
-
-To activate the newly-created environment and run |PsychoPy|, execute::
-
-  conda activate psychopy
-  psychopy
+Alternatively if someone wants to jump in and get things working here again that 
+would be appreciated by other users I'm sure.
 
 .. _developers_install:
 
 Developers install
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Ensure you have Python 3.6 and the latest version of pip installed::
+Ensure you have Python 3.8 and the latest version of pip installed::
 
   python --version
   pip --version
@@ -179,9 +186,9 @@ From the directory where you cloned the latest |PsychoPy| repository (i.e., wher
 
   pip install -e .
 
-This will install all |PsychoPy| dependencies to your default Python distribution (which should be Python 3.6). Next, you should create a new |PsychoPy| shortcut linking your newly installed dependencies to your current version of |PsychoPy| in the cloned repository. To do this, simply create a new .BAT file containing::
+This will install all |PsychoPy| dependencies to your default Python distribution (which should be Python 3.8). Next, you should create a new |PsychoPy| shortcut linking your newly installed dependencies to your current version of |PsychoPy| in the cloned repository. To do this, simply create a new .BAT file containing::
 
-"C:\PATH_TO_PYTHON3.6\python.exe C:\PATH_TO_CLONED_PSYCHOPY_REPO\psychopy\app\psychopyApp.py"
+"C:\PATH_TO_PYTHON3.8\python.exe C:\PATH_TO_CLONED_PSYCHOPY_REPO\psychopy\app\psychopyApp.py"
 
 Alternatively, you can run the psychopyApp.py from the command line::
 

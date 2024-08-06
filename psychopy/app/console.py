@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 
@@ -15,6 +15,7 @@ consoles/terminals within the PsychoPy GUI suite.
 #
 import os.path
 import sys
+import io
 
 
 class StdStreamDispatcher:
@@ -135,7 +136,8 @@ class StdStreamDispatcher:
 
         # write to log file
         if self._logFile is not None:
-            with open(self._logFile, 'a') as lf:
+            # with open(self._logFile, 'a') as lf:
+            with io.open(self._logFile, 'a', encoding="utf-8") as lf:
                 lf.write(text)
                 lf.flush()
 

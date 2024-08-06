@@ -38,7 +38,8 @@ colorExamples = {
 
 # Dict of named colours
 colorNames = {
-    "none": (0, 0, 0),
+    "none": (0, 0, 0, 0),
+    "transparent": (0, 0, 0, 0),
     "aliceblue": (0.882352941176471, 0.945098039215686, 1),
     "antiquewhite": (0.96078431372549, 0.843137254901961, 0.686274509803922),
     "aqua": (-1, 1, 1),
@@ -258,6 +259,7 @@ class Color:
     """
     def __init__(self, color=None, space=None, contrast=None, conematrix=None):
         self._cache = {}
+        self._renderCache = {}
         self.contrast = contrast if isinstance(contrast, (int, float)) else 1
         self.alpha = 1
         self.valid = False
@@ -376,8 +378,9 @@ class Color:
         """
         if space not in colorSpaces:
             raise ValueError(f"{space} is not a valid color space")
-        if np.all(self.contrast == 1):
-             return getattr(self, space)
+        # If value is cached, return it rather than doing calculations again
+        if space in self._renderCache:
+            return self._renderCache[space]
         # Transform contrast to match rgb
         contrast = self.contrast
         contrast = np.reshape(contrast, (-1, 1))
@@ -386,7 +389,8 @@ class Color:
         adj = np.clip(self.rgb * contrast, -1, 1)
         buffer = self.copy()
         buffer.rgb = adj
-        return getattr(buffer, space)
+        self._renderCache[space] = getattr(buffer, space)
+        return self._renderCache[space]
 
     def __repr__(self):
         """If colour is printed, it will display its class and value.
@@ -490,6 +494,42 @@ class Color:
         dupe.valid = self.valid
         return dupe
 
+    def getReadable(self, contrast=4.5/21):
+        """
+        Get a color which will stand out and be easily readable against this
+        one. Useful for choosing text colors based on background color.
+
+        Parameters
+        ----------
+        contrast : float
+            Desired perceived contrast between the two colors, between 0 (the
+            same color) and 1 (as opposite as possible). Default is the
+            w3c recommended minimum of 4.5/21 (dividing by 21 to adjust for
+            sRGB units).
+
+        Returns
+        -------
+        colors.Color
+            A contrasting color to this color.
+        """
+        # adjust contrast to sRGB
+        contrast *= 21
+        # get value as rgb1
+        rgb = self.rgb1
+        # convert to srgb
+        srgb = rgb**2.2 * [0.2126, 0.7151, 0.0721]
+        # apply contrast adjustment
+        if np.sum(srgb) < 0.5:
+            srgb = (srgb + 0.05) * contrast
+        else:
+            srgb = (srgb + 0.05) / contrast
+        # convert back
+        rgb = (srgb / [0.2126, 0.7151, 0.0721])**(1/2.2)
+        # cap
+        rgb = np.clip(rgb, 0, 1)
+        # Return new color
+        return Color(rgb, "rgb1")
+
     @property
     def alpha(self):
         """How opaque (1) or transparent (0) this color is. Synonymous with
@@ -502,22 +542,33 @@ class Color:
         # Treat 1x1 arrays as a float
         if isinstance(value, np.ndarray):
             if value.size == 1:
-                value = float(value)
-        # Clip value(s) to within range
-        if isinstance(value, np.ndarray):
-            value = np.clip(value, 0, 1)
+                value = float(value[0])
         else:
-            # If coercible to float, do so
             try:
-                value = float(value)
+                value = float(value)  # If coercible to float, do so
             except (TypeError, ValueError) as err:
                 raise TypeError(
-                    "Could not set alpha as value `{}` of type `{}`".format(value, type(value).__name__)
+                    "Could not set alpha as value `{}` of type `{}`".format(
+                        value, type(value).__name__
+                    )
                 )
-            value = min(value, 1)
-            value = max(value, 0)
+        value = np.clip(value, 0, 1)  # Clip value(s) to within range
         # Set value
         self._alpha = value
+        # Clear render cache
+        self._renderCache = {}
+
+    @property
+    def contrast(self):
+        if hasattr(self, "_contrast"):
+            return self._contrast
+
+    @contrast.setter
+    def contrast(self, value):
+        # Set value
+        self._contrast = value
+        # Clear render cache
+        self._renderCache = {}
 
     @property
     def opacity(self):
@@ -575,12 +626,13 @@ class Color:
         # Validate
         color, space = self.validate(color, space='rgb')
         if space != 'rgb':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Set color
         self._franca = color
         # Clear outdated values from cache
         self._cache = {'rgb': color}
+        self._renderCache = {}
 
     @property
     def rgba255(self):
@@ -609,12 +661,13 @@ class Color:
         # Validate
         color, space = self.validate(color, space='rgb255')
         if space != 'rgb255':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Iterate through values and do conversion
         self.rgb = 2 * (color / 255 - 0.5)
         # Clear outdated values from cache
         self._cache = {'rgb255': color}
+        self._renderCache = {}
 
     @property
     def rgba1(self):
@@ -643,12 +696,13 @@ class Color:
         # Validate
         color, space = self.validate(color, space='rgb1')
         if space != 'rgb1':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Iterate through values and do conversion
         self.rgb = 2 * (color - 0.5)
         # Clear outdated values from cache
         self._cache = {'rgb1': color}
+        self._renderCache = {}
 
     @property
     def hex(self):
@@ -689,7 +743,7 @@ class Color:
         # Validate
         color, space = self.validate(color, space='hex')
         if space != 'hex':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         if len(color) > 1:
             # Handle arrays
@@ -720,6 +774,7 @@ class Color:
         self.rgb255 = rgb255
         # Clear outdated values from cache
         self._cache = {'hex': color}
+        self._renderCache = {}
 
     @property
     def named(self):
@@ -762,7 +817,7 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='named')
         if space != 'named':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Retrieve named colour
         if len(color) > 1:
@@ -781,6 +836,7 @@ class Color:
                 self.alpha = 0
         # Clear outdated values from cache
         self._cache = {'named': color}
+        self._renderCache = {}
 
     @property
     def hsva(self):
@@ -805,12 +861,13 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='hsv')
         if space != 'hsv':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Apply via rgba255
         self.rgb = ct.hsv2rgb(color)
         # Clear outdated values from cache
         self._cache = {'hsv': color}
+        self._renderCache = {}
 
     @property
     def lmsa(self):
@@ -835,12 +892,13 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='lms')
         if space != 'lms':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Apply via rgba255
         self.rgb = ct.lms2rgb(color, self.conematrix)
         # Clear outdated values from cache
         self._cache = {'lms': color}
+        self._renderCache = {}
 
     @property
     def dkla(self):
@@ -866,12 +924,13 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='dkl')
         if space != 'dkl':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Apply via rgba255
         self.rgb = ct.dkl2rgb(color, self.conematrix)
         # Clear outdated values from cache
         self._cache = {'dkl': color}
+        self._renderCache = {}
 
     @property
     def dklaCart(self):
@@ -897,12 +956,13 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='dklCart')
         if space != 'dkl':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Apply via rgba255
         self.rgb = ct.dklCart2rgb(color, self.conematrix)
         # Clear outdated values from cache
         self._cache = {'dklCart': color}
+        self._renderCache = {}
 
     @property
     def srgb(self):
@@ -918,12 +978,13 @@ class Color:
         # Validate
         color, space = self.validate(color=color, space='srgb')
         if space != 'srgb':
-            setattr(self, space)
+            setattr(self, space, color)
             return
         # Apply via rgba255
         self.rgb = ct.srgbTF(color, reverse=True)
         # Clear outdated values from cache
         self._cache = {'srgb': color}
+        self._renderCache = {}
 
     # removing for now
     # @property
@@ -937,12 +998,13 @@ class Color:
     #     # Validate
     #     color, space = self.validate(color=color, space='rec709TF')
     #     if space != 'rec709TF':
-    #         setattr(self, space)
+    #         setattr(self, space, color)
     #         return
     #     # Apply via rgba255
     #     self.rgb = ct.rec709TF(color, reverse=True)
     #     # Clear outdated values from cache
     #     self._cache = {'rec709TF': color}
+    #     self._renderCache = {}
 
 
 # ------------------------------------------------------------------------------

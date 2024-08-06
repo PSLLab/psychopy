@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Container for all visual-related functions and classes
@@ -62,6 +62,7 @@ from psychopy.visual.custommouse import CustomMouse
 from psychopy.visual.elementarray import ElementArrayStim
 from psychopy.visual.ratingscale import RatingScale
 from psychopy.visual.slider import Slider
+from psychopy.visual.progress import Progress
 from psychopy.visual.simpleimage import SimpleImageStim
 
 # stimuli derived from BaseVisualStim
@@ -88,11 +89,14 @@ from psychopy.visual.line import Line
 from psychopy.visual.polygon import Polygon
 from psychopy.visual.rect import Rect
 from psychopy.visual.pie import Pie
+from psychopy.visual.button import CheckBoxStim
 
 # stimuli derived from Polygon
 from psychopy.visual.circle import Circle
 
+# stimuli derived from TextBox
 from psychopy.visual.textbox import TextBox
+from psychopy.visual.dropdown import DropDownCtrl
 
 # rift support 
 from psychopy.visual.rift import Rift
@@ -101,6 +105,7 @@ from psychopy.visual.rift import Rift
 from psychopy.visual.nnlvs import VisualSystemHD
 
 # 3D stimuli support
+from psychopy.visual.panorama import PanoramicImageStim
 from psychopy.visual.stim3d import LightSource
 from psychopy.visual.stim3d import SceneSkybox
 from psychopy.visual.stim3d import BlinnPhongMaterial

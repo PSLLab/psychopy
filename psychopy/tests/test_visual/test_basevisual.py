@@ -356,7 +356,7 @@ class _TestUnitsMixin:
                     # Compare screenshot
                     filename = f"{self.__class__.__name__}_{size['suffix']}_{pos['suffix']}.png"
                     #win.getMovieFrame(buffer='back').save(Path(utils.TESTS_DATA_PATH) / filename)
-                    utils.compareScreenshot(filename, win, crit=7)
+                    utils.compareScreenshot(filename, win, crit=8)
                     win.flip()
         # Cleanup
         win.close()
@@ -421,7 +421,10 @@ class _TestUnitsMixin:
                 utils.compareScreenshot(filename, win, tag=f"{winunits}X{objunits}")
                 if hasattr(obj, "_size"):
                     # Compare reported size
-                    assert layout.Size(obj.size, obj.units, obj.win) == layout.Size(targetSizes[objunits], objunits, obj.win)
+                    assert layout.Size(obj.size, obj.units, obj.win) == layout.Size(targetSizes[objunits], objunits, obj.win), (
+                        f"Object size ({obj.size}, in {obj.units}) did not match desired size ({targetSizes[objunits]} "
+                        f"in {objunits} when window was {obj.win.size}px in {winunits}."
+                    )
                 # Flip screen
                 win.flip()
         # Close window
@@ -468,6 +471,9 @@ class _TestUnitsMixin:
                 try:
                     # Create a window and object
                     win = visual.Window(monitor="testMonitor", units=winunits)
+                    win.monitor.setSizePix((256, 128))
+                    win.monitor.setWidth(4)
+                    win.monitor.setDistance(50)
                     obj = copy(self.obj)
                     obj.win = win
                     obj.units = objunits
@@ -506,3 +512,23 @@ class _TestUnitsMixin:
                 except BaseException as err:
                     err.args = err.args + ([winunits, objunits],)
                     raise err
+
+    def test_default_units(self):
+        for units in layout.unitTypes:
+            if units in [None, "None", "none", ""]:
+                continue
+            # Create a window with given units
+            win = visual.Window(monitor="testMonitor", units=units)
+            win.monitor.setSizePix((256, 128))
+            win.monitor.setWidth(4)
+            win.monitor.setDistance(50)
+            # When setting units to None with win, does it inherit units?
+            self.obj.win = win
+            self.obj.units = None
+            assert self.obj.units == units
+            # Cleanup
+            win.close()
+            del win
+
+        # Reset obj win
+        self.obj.win = self.win

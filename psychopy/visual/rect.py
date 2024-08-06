@@ -5,7 +5,7 @@
 :class:`~psychopy.visual.ShapeStim`"""
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 import numpy as np
@@ -17,7 +17,9 @@ from psychopy.tools.attributetools import attributeSetter, setAttribute
 
 class Rect(BaseShapeStim):
     """Creates a rectangle of given width and height as a special case of a
-    :class:`~psychopy.visual.ShapeStim`.
+    :class:`~psychopy.visual.ShapeStim`. This is a lazy-imported class,
+    therefore import using full path `from psychopy.visual.rect import Rect`
+    when inheriting from it.
 
     Parameters
     ----------
@@ -95,6 +97,8 @@ class Rect(BaseShapeStim):
     colorSpace : str
         Sets the colorspace, changing how values passed to `lineColor` and
         `fillColor` are interpreted.
+    draggable : bool
+        Can this stimulus be dragged by a mouse click?
 
     Attributes
     ----------
@@ -104,16 +108,19 @@ class Rect(BaseShapeStim):
         rectangle in a single dimension after initialization.
 
     """
+
+    _defaultFillColor = 'white'
+    _defaultLineColor = None
+
     def __init__(self,
                  win,
                  width=.5,
                  height=.5,
                  units='',
                  lineWidth=1.5,
-                 lineColor=None,
-                 lineColorSpace=None,
-                 fillColor='white',
-                 fillColorSpace=None,
+                 lineColor=False,
+                 fillColor=False,
+                 colorSpace='rgb',
                  pos=(0, 0),
                  size=None,
                  anchor=None,
@@ -122,13 +129,17 @@ class Rect(BaseShapeStim):
                  contrast=1.0,
                  depth=0,
                  interpolate=True,
-                 lineRGB=False,
-                 fillRGB=False,
+                 draggable=False,
                  name=None,
                  autoLog=None,
                  autoDraw=False,
+                 # legacy
                  color=None,
-                 colorSpace='rgb'):
+                 lineColorSpace=None,
+                 fillColorSpace=None,
+                 lineRGB=False,
+                 fillRGB=False,
+                 ):
         # width and height attributes, these are later aliased with `size`
         self.__dict__['width'] = float(width)
         self.__dict__['height'] = float(height)
@@ -163,6 +174,7 @@ class Rect(BaseShapeStim):
             contrast=contrast,
             depth=depth,
             interpolate=interpolate,
+            draggable=draggable,
             lineRGB=lineRGB,
             fillRGB=fillRGB,
             name=name,

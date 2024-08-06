@@ -11,9 +11,10 @@ Using the Shelf for Multi-session testing, Counterbalancing and more online
 
 The `Shelf <https://psychopy.github.io/psychojs/module-data.Shelf.html>`_ is a flexible, multiuse tool to aid with online studies where information needs sharing between studies, either in real time or across sessions. Use cases for the shelf include:
 
-* Multi-session testing
+* :ref:`Multi-session testing <multi_session_testing>`
 * :ref:`Counterbalancing <counterbalanceShelf>`
 * Multi-player games
+* :ref:`Leaderboards <leaderboardShelf>`
 
 Here we will walk through some of the use cases and how to implement them. At the moment, we must interact with the Shelf through :ref:`Code Components <code>`. In the longer term, once we better understand the ways in which scientists are using the Shelf, we hope to make this more accessible by making a :ref:`Builder <builder>` component.
 
@@ -40,7 +41,7 @@ Interacting with Integer Records
 
 Imagine the simple case of wanting to count how many participants have completed your task. You would make an Integer Record, which starts at 0 and assign the scope of the Record to the experiment of interest.
 
-From within your experiment you can use several methods to interact with Integers including (though not limited to; see all methods `here <https://psychopy.github.io/psychojs/module-data.Shelf.html>`_):
+From within your experiment you can use several methods to interact with Integers including (though not limited to; see all methods `here <https://psychopy.github.io/psychojs/Shelf.html>`_):
 
 * :code:`psychoJS.shelf.getIntegerValue()`
 * :code:`psychoJS.shelf.setIntegerValue()`
@@ -63,7 +64,7 @@ Boolean Records are perhaps the easiest to interact with, by means that they onl
 
 Imagine you have an experiment that can be "opened" or "closed" by a host. You could add a Record called "session_open", ensure it is Boolean, and in your experiment make it such that the participant can sign in as a host (with the power to open/close the session) or as a participant (who, for now, passively watches the session opening or closing).
 
-In our experiment we could get the session status and show it by adding a code component (ensure it's code type is JS) and using :code:`psychoJS.shelf.getBooleanValue(["session_open"])`. We can allow the host to open or close the session using a simple routine with a response component (in our demo we use a mouse) and in the End Routine tab using :code:`psychoJS.shelf.flipBooleanValue(["session_open"])`. In a separate routine (the one the participant views) we might repeatedly check what the value of the "session_open" record is so that we can use it to control somthing in our experiment, in our case, a picture of a door that opens/closes.
+In our experiment we could get the session status and show it by adding a code component (ensure it's code type is JS) and using :code:`psychoJS.shelf.getBooleanValue(["session_open"])`. We can allow the host to open or close the session using a simple routine with a response component (in our demo we use a mouse) and in the End Routine tab using :code:`psychoJS.shelf.flipBooleanValue(["session_open"])`. In a separate routine (the one the participant views) we might repeatedly check what the value of the "session_open" record is so that we can use it to control something in our experiment, in our case, a picture of a door that opens/closes.
 
 
 Interacting with Text Records
@@ -94,7 +95,9 @@ Imagine you have an experiment where you wish for many players to interact with 
 * :code:`psychoJS.shelf.appendListValue()`
 * :code:`psychoJS.shelf.popListValue()`
 
-First imagine you want to allow the player to clear the list of preexisting players (in our demo we achieve this though a drop down). We would do that using :code:`psychoJS.shelf.setListValue({key: ["player_list"], value: []})`. Then imagine we want to add this players screen name to the existing list of screen names, that is achieved using :code:`psychoJS.shelf.appendListValue({key: ["player_list"], elements: expInfo["screen name"]})` finally, to fetch the screen names (and we may wish to do this periodically) we can ude :code:`players = await psychoJS.shelf.getListValue({key: ["player_list"], defaultValue:[]})` (remember, it is important to use :code:`await` in order to retrieve the value once the JS Promise has been fulfilled.
+First imagine you want to allow the player to clear the list of preexisting players (in our demo we achieve this though a drop down). We would do that using :code:`psychoJS.shelf.setListValue({key: ["player_list"], value: []})`. Then imagine we want to add this players screen name to the existing list of screen names, that is achieved using :code:`psychoJS.shelf.appendListValue({key: ["player_list"], elements: expInfo["screen name"]})` finally, to fetch the screen names (and we may wish to do this periodically) we can use :code:`players = await psychoJS.shelf.getListValue({key: ["player_list"], defaultValue:[]})` (remember, it is important to use :code:`await` in order to retrieve the value once the JS Promise has been fulfilled.
+
+.. _multi_session_testing:
 
 Interacting with Dictionary Records
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -128,25 +131,174 @@ First, we check, has this participant taken part at all? We can do that by check
 .. _counterbalanceShelf:
 
 Counterbalancing
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
+**PsychoPy Version 2024.1 or later required**
 
-**Demo link:** `here <https://run.pavlovia.org/lpxrh6/shelf_counterbalance_demo/>`_
+**Demo link:** `here <https://run.pavlovia.org/Consultancy/numgroup_test>`_
 
-**Demo experiment files:** `here <https://gitlab.pavlovia.org/lpxrh6/shelf_counterbalance_demo/>`_
+**Demo experiment files:** `here <https://gitlab.pavlovia.org/Consultancy/numgroup_test>`_
 
-Counterbalancing can be a pain, but online it is even more painful! There are many more participants available in the pool and the researcher has less control over group assignment (compared with in the lab!). The Shelf now has handy helper functions to assist.
+We now have a Counterbalance Routine where you can set up your counterbalance groups in Builder Mode and interact with the Shelf with the record type, Counterbalance.
 
-* :code:`psychoJS.shelf.counterbalanceSelect()`
-
-To get started you must make a record with the type Dictionary, it must also have the following fields:
-
-
-.. figure:: /images/counterbalancerecord.PNG
+.. figure:: /images/counterbalanceBuilder.png
     :name: shelfAccess
     :align: center
     :figclass: align-center
 
-    Example set up for a Shelf Record used to assist counterbalancing. The Record must be a Dictionary and it must contain the fields "groups" and "groupSizes", indicating the group names and size of each group accordingly.
+|
+To set up your Counterbalance Shelf, you would need to first upload your task to Pavlovia and set it to Pilot/Running Mode. 
 
-In your experiment, you can then use :code:`[thisGroup, finished] = await psychoJS.shelf.counterBalanceSelect({key: ['groups'], groups: ['A', 'B', 'C'], groupSizes: [10, 10, 10]})` which will return two values, :code:`thisGroup` indicates the group selected for this participant and :code:`finished` indicating if sampling has completed (i.e. all groups are full). If during testing you notice that some groups need "topping up" e.g. the data from one participant is unusable, you can always edit the Shelf directly to allow more participants in each group.
+In your Shelf view of your Dashboard, click on Add Record. In Key, add the name of your Counterbalance Routine as in your Builder task. For Scope, choose Experiment and select the name of your Builder task. For Type, select Counterbalance (*you might need to scroll down*).
 
+Once you click on Ok, you will see an empty table in Value. Here, set up the same group parameters as in your Builder task.
+
+.. figure:: /images/counterbalanceRecordTypeParameters.png
+    :name: shelfAccess
+    :align: center
+    :figclass: align-center
+
+|
+Your resulting Shelf record should look like this:
+
+.. figure:: /images/counterbalanceRecordType.png
+    :name: shelfAccess
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+To find out more about the Counterbalance Routine, click `here <https://www.psychopy.org/builder/components/counterbalanceStandaloneRoutine.html>`_
+
+
+.. _leaderboardShelf:
+
+Leaderboard
+^^^^^^^^^^^^
+
+**Demo link:** `here <https://run.pavlovia.org/SueLynnNotts/leaderboard>`_
+
+**Demo experiment files:** `here <https://gitlab.pavlovia.org/SueLynnNotts/leaderboard>`_
+
+Leaderboards are a fun way of adding an element of gamification to your tasks! You can do this by using a Dictionary type shelf record. Just like in the counterbalancing example, the Key Component (on your Pavlovia shelf) and the :code:`key` within the code component of your PsychoPy task needs to match and have a meaningful name. Since the demo task records both the reaction times and accuracy data, the name used is "leaderboard_scores".
+
+You would not need to add any fields within the shelf record on Pavlovia as they will automatically be populated when the task is completed. As more people complete the task, the shelf record would look like so:
+
+.. figure:: /images/leaderboard_images/exampleLeaderboardShelf.png
+    :name: leaderboardShelf
+    :align: center
+    :figclass: align-center
+    
+
+|
+
+If you would like to just record each participants' scores, you would only need the following code component:
+
+.. figure:: /images/leaderboard_images/setupLeaderboardCode.png
+    :name: leaderboardCodeComponent
+    :align: center
+    :figclass: align-center
+    :width: 85%
+
+|
+
+This is how you would fetch all the records that's stored within the leaderboard.
+
+.. figure:: /images/leaderboard_images/fetchLeaderboardCode1.png
+    :name: fetchLeaderboardCodeComponent1
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+.. figure:: /images/leaderboard_images/fetchLeaderboardCode2.png
+    :name: fetchLeaderboardCodeComponent2
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+**Average Reaction Times**
+
+This is an example JavaScript snippet to fetch all the reaction times recorded and calculate the average reaction times:
+
+.. figure:: /images/leaderboard_images/leaderboardRTCode.png
+    :name: leaderboardRTCodeComponent1
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+**Ranked Accuracy**
+
+This is an example JavaScript snippet to fetch all the accuracy stored and sort them in descending order:
+
+.. figure:: /images/leaderboard_images/leaderboardAccuracyCode1.png
+    :name: leaderboardSortAccuracyCodeComponent1
+    :align: center
+    :figclass: align-center
+    :width: 75%
+|
+
+.. figure:: /images/leaderboard_images/leaderboardAccuracyCode2.png
+    :name: leaderboardSortAccuracyCodeComponent2
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+The above code component only sorts the accuracies of each participant but doesn't return the participants' IDs. To get the sorted IDs, you would need the following code component:
+
+.. figure:: /images/leaderboard_images/leaderboardSortID1.png
+    :name: leaderboardSortIDCodeComponent1
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+.. figure:: /images/leaderboard_images/leaderboardSortID2.png
+    :name: leaderboardSortIDCodeComponent2
+    :align: center
+    :figclass: align-center
+    :width: 75%
+
+|
+
+The IDs and accuracy scores are stored in the separate lists (in descending order) and therefore can be indexed. In this example, we index the first 5 IDs and accuracy scores.
+
+.. figure:: /images/leaderboard_images/leaderboardExample.png
+    :name: leaderboardExample
+    :align: center
+    :figclass: align-center
+    :width: 60%
+
+.. _checkIdsShelf:
+
+Checking existing participant IDs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Demo link:** `here <https://run.pavlovia.org/SueLynnNotts/check_id_demo>`_
+
+**Demo experiment files:** `here <https://gitlab.pavlovia.org/SueLynnNotts/check_id_demo>`_
+
+When running multi-session experiments online, it is sometimes difficult to tell if the person accessing the link is a participant from a previous session. This participant ID checker using the List type Shelf uses a prepopulated list of IDs to first check if the participant ID entered at the startup dialog box exists in the prepopulated list (see list below for accepted IDs) before either showing a message saying "Welcome back!" or "Sorry, your id couldn't be found."
+
+|
+
+.. figure:: /images/shelf_list_ids.png
+    :name: acceptedIDs
+    :align: center
+    :figclass: align-center
+
+|
+
+In the experiment files, there's a spreadsheet which automatically formats the IDs to be copied into the Shelf record (see below for an example).
+
+.. figure:: /images/shelf_id_record.png
+    :name: acceptedIDs
+    :align: center
+    :figclass: align-center

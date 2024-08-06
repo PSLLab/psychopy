@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """Module for the PsychoPy GUI application.
@@ -11,6 +11,9 @@
 __all__ = [
     'startApp',
     'quitApp',
+    'restartApp',
+    'setRestartRequired',
+    'isRestartRequired',
     'getAppInstance',
     'getAppFrame',
     'isAppStarted']
@@ -22,10 +25,15 @@ from .frametracker import openFrames
 
 # Handle to the PsychoPy GUI application instance. We need to have this mainly
 # to allow the plugin system to access GUI to allow for changes after startup.
-_psychopyApp = None
+_psychopyAppInstance = None
+
+# Flag to indicate if the app requires a restart. This is set by the app when
+# it needs to restart after an update or plugin installation. We can check this
+# flag to determine if the app is in a state that it is recommended to restart.
+REQUIRES_RESTART = False
 
 
-def startApp(showSplash=True, testMode=False, safeMode=False):
+def startApp(showSplash=True, testMode=False, safeMode=False, startView=None):
     """Start the PsychoPy GUI.
 
     This function is idempotent, where additional calls after the app starts
@@ -51,11 +59,15 @@ def startApp(showSplash=True, testMode=False, safeMode=False):
         Must be `True` if creating an instance for unit testing.
     safeMode : bool
         Start PsychoPy in safe-mode. If `True`, the GUI application will launch
-        with without plugins and will use a default a configuration (planned
-        feature, not implemented yet).
+        with without loading plugins.
+    startView : str, None
+        Name of the view to start the app with. Valid values are 'coder',
+        'builder' or 'runner'. If `None`, the app will start with the default
+        view or the view specifed with the `PSYCHOPYSTARTVIEW` environment
+        variable.
 
     """
-    global _psychopyApp
+    global _psychopyAppInstance
 
     if isAppStarted():  # do nothing it the app is already loaded
         return  # NOP
@@ -82,8 +94,8 @@ def startApp(showSplash=True, testMode=False, safeMode=False):
     # If `testMode==True`, all messages and errors (i.e. exceptions) will log to
     # console.
     from psychopy.app._psychopyApp import PsychoPyApp
-    _psychopyApp = PsychoPyApp(
-        0, testMode=testMode, showSplash=showSplash)
+    _psychopyAppInstance = PsychoPyApp(
+        0, testMode=testMode, showSplash=showSplash, safeMode=safeMode, startView=startView)
 
     # After the app is loaded, we hand off logging to the stream dispatcher
     # using the provided log file path. The dispatcher will write out any log
@@ -96,7 +108,7 @@ def startApp(showSplash=True, testMode=False, safeMode=False):
             '`StdStreamDispatcher` instance initialized outside of `startApp`, '
             'this is not permitted.')
 
-    stdDisp = StdStreamDispatcher(_psychopyApp, prefLogFilePath)
+    stdDisp = StdStreamDispatcher(_psychopyAppInstance, prefLogFilePath)
     stdDisp.redirect()
 
     if not testMode:
@@ -111,7 +123,7 @@ def startApp(showSplash=True, testMode=False, safeMode=False):
 
         # Allow the UI to refresh itself. Don't do this during testing where the
         # UI is exercised programmatically.
-        _psychopyApp.MainLoop()
+        _psychopyAppInstance.MainLoop()
 
 
 def quitApp():
@@ -123,13 +135,72 @@ def quitApp():
     if not isAppStarted():
         return
 
-    global _psychopyApp
-    if hasattr(_psychopyApp, 'quit'):  # type check
-        _psychopyApp.quit()
+    global _psychopyAppInstance
+    if hasattr(_psychopyAppInstance, 'quit'):  # type check
+        _psychopyAppInstance.quit()
         # PsychoPyApp._called_from_test = False  # reset
-        _psychopyApp = None
+        _psychopyAppInstance = None
     else:
         raise AttributeError('Object `_psychopyApp` has no attribute `quit`.')
+
+
+def restartApp():
+    """Restart the PsychoPy application instance.
+
+    This will write a file named '.restart' to the user preferences directory
+    and quit the application. The presence of this file will indicate to the 
+    launcher parent process that the app should restart.
+
+    The app restarts with the same arguments as the original launch. This is
+    useful for updating the application or plugins without requiring the user
+    to manually restart the app.
+
+    The user will be prompted to save any unsaved work before the app restarts.
+
+    """
+    if not isAppStarted():
+        return
+    
+    # write a restart file to the user preferences directory
+    from psychopy.preferences import prefs
+    restartFilePath = os.path.join(prefs.paths['userPrefsDir'], '.restart')
+    
+    with open(restartFilePath, 'w') as restartFile:
+        restartFile.write('')  # empty file
+
+    quitApp()
+
+
+def setRestartRequired(state=True):
+    """Set the flag to indicate that the app requires a restart.
+
+    This function is used by the app to indicate that a restart is required
+    after an update or plugin installation. The flag is checked by the launcher
+    parent process to determine if the app should restart.
+
+    Parameters
+    ----------
+    state : bool
+        Set the restart flag. If `True`, the app will restart after quitting.
+
+    """
+    global REQUIRES_RESTART
+    REQUIRES_RESTART = bool(state)
+
+
+def isRestartRequired():
+    """Check if the app requires a restart.
+
+    Parts of the application may set this flag to indicate that a restart is
+    required after an update or plugin installation.
+
+    Returns
+    -------
+    bool
+        `True` if the app requires a restart else `False`.
+
+    """
+    return REQUIRES_RESTART
 
 
 def getAppInstance():
@@ -152,7 +223,20 @@ def getAppInstance():
         coder = app.getAppInstance().coder
 
     """
-    return _psychopyApp  # use a function here to protect the reference
+    return _psychopyAppInstance  # use a function here to protect the reference
+
+
+def setAppInstance(obj):
+    """
+    Define a reference to the current PsychoPyApp object.
+
+    Parameters
+    ----------
+    obj : psychopy.app._psychopyApp.PsychoPyApp
+        Current instance of the PsychoPy app
+    """
+    global _psychopyAppInstance
+    _psychopyAppInstance = obj
 
 
 def isAppStarted():
@@ -164,7 +248,7 @@ def isAppStarted():
         `True` if the GUI is started else `False`.
 
     """
-    return _psychopyApp is not None
+    return _psychopyAppInstance is not None
 
 
 def getAppFrame(frameName):
@@ -193,7 +277,21 @@ def getAppFrame(frameName):
     if frameName not in ('builder', 'coder', 'runner'):
         raise ValueError('Invalid identifier specified as `frameName`.')
 
-    return getattr(_psychopyApp, frameName, None)
+    # open the requested frame if no yet loaded
+    frameRef = getattr(_psychopyAppInstance, frameName, None)
+    if frameRef is None:
+        if frameName == 'builder' and hasattr(_psychopyAppInstance, 'showBuilder'):
+            _psychopyAppInstance.showBuilder()
+        elif frameName == 'coder' and hasattr(_psychopyAppInstance, 'showCoder'):
+            _psychopyAppInstance.showCoder()
+        elif frameName == 'runner' and hasattr(_psychopyAppInstance, 'showRunner'):
+            _psychopyAppInstance.showRunner()
+        else:
+            raise AttributeError('Cannot load frame. Method not available.')
+        
+        frameRef = getattr(_psychopyAppInstance, frameName, None)
+
+    return frameRef
 
 
 if __name__ == "__main__":

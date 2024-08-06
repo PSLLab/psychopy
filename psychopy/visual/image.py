@@ -4,7 +4,7 @@
 """Display an image on `psycopy.visual.Window`"""
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 # Ensure setting pyglet.options['debug_gl'] to False is done prior to any
@@ -20,17 +20,19 @@ import ctypes
 GL = pyglet.gl
 
 import numpy
+from fractions import Fraction
 
 import psychopy  # so we can get the __path__
-from psychopy import logging, colors
+from psychopy import logging, colors, layout
 
 from psychopy.tools.attributetools import attributeSetter, setAttribute
-from psychopy.visual.basevisual import BaseVisualStim
-from psychopy.visual.basevisual import (ContainerMixin, ColorMixin,
-                                        TextureMixin)
+from psychopy.visual.basevisual import (
+    BaseVisualStim, DraggingMixin, ContainerMixin, ColorMixin, TextureMixin
+)
 
 
-class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
+class ImageStim(BaseVisualStim, DraggingMixin, ContainerMixin, ColorMixin,
+                TextureMixin):
     """Display an image on a :class:`psychopy.visual.Window`
     """
 
@@ -49,6 +51,7 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
                  opacity=None,
                  depth=0,
                  interpolate=False,
+                 draggable=False,
                  flipHoriz=False,
                  flipVert=False,
                  texRes=128,
@@ -63,6 +66,7 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
 
         super(ImageStim, self).__init__(win, units=units, name=name,
                                         autoLog=False)  # set at end of init
+        self.draggable = draggable
         # use shaders if available by default, this is a good thing
         self.__dict__['useShaders'] = win._haveShaders
 
@@ -103,6 +107,7 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
         # Set the image and mask-
         self.setImage(image, log=False)
         self.texRes = texRes  # rebuilds the mask
+        self.size = size
 
         # generate a displaylist ID
         self._listID = GL.glGenLists(1)
@@ -213,7 +218,9 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
         # If our image is a movie stim object, pull pixel data from the most
         # recent frame and write it to the memory
         if hasattr(self.image, 'getVideoFrame'):
-            self._movieFrameToTexture(self.image.getVideoFrame())
+            videoFrame = self.image.getVideoFrame()
+            if videoFrame is not None:
+                self._movieFrameToTexture(videoFrame)
 
         GL.glPushMatrix()  # push before the list, pop after
         win.setScale('pix')
@@ -227,46 +234,6 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
 
         # return the view to previous state
         GL.glPopMatrix()
-
-    # overload ColorMixin methods so that they refresh the image after being called
-    @property
-    def foreColor(self):
-        # Call setter of parent mixin
-        return ColorMixin.foreColor.fget(self)
-
-    @foreColor.setter
-    def foreColor(self, value):
-        # Call setter of parent mixin
-        ColorMixin.foreColor.fset(self, value)
-        # Reset the image and mask-
-        self.setImage(self._imName, log=False)
-        self.texRes = self.__dict__['texRes']  # rebuilds the mask
-
-    @property
-    def contrast(self):
-        # Call setter of parent mixin
-        return ColorMixin.contrast.fget(self)
-
-    @contrast.setter
-    def contrast(self, value):
-        # Call setter of parent mixin
-        ColorMixin.contrast.fset(self, value)
-        # Reset the image and mask-
-        self.setImage(self._imName, log=False)
-        self.texRes = self.__dict__['texRes']  # rebuilds the mask
-
-    @property
-    def opacity(self):
-        # Call setter of parent mixin
-        return BaseVisualStim.opacity.fget(self)
-
-    @opacity.setter
-    def opacity(self, value):
-        # Call setter of parent mixin
-        BaseVisualStim.opacity.fset(self, value)
-        # Reset the image and mask-
-        self.setImage(self._imName, log=False)
-        self.texRes = self.__dict__['texRes']  # rebuilds the mask
 
     def _movieFrameToTexture(self, movieSrc):
         """Convert a movie frame to a texture and use it.
@@ -388,17 +355,8 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
                 forcePOW2=False,
                 wrapping=False)
 
-        # if user requested size=None then update the size for new stim here
-        if self._requestedSize is None:
-            if hasattr(self, '_requestedSize'):
-                self.size = Size(numpy.array(self._origSize),
-                                 units='pix',
-                                 win=self.win)  # set size to default
-            # for camera and movie textures get the size of the video frame
-            elif hasattr(value, 'getVideoFrame'):
-                self.size = Size(numpy.array(value.frameSize),
-                                 units='pix',
-                                 win=self.win)  # set size to default
+        # update size
+        self.size = self._requestedSize
 
         if hasattr(value, 'getVideoFrame'):  # make sure we invert vertices
             self.flipVert = True
@@ -414,6 +372,47 @@ class ImageStim(BaseVisualStim, ContainerMixin, ColorMixin, TextureMixin):
         but use this method if you need to suppress the log message.
         """
         setAttribute(self, 'image', value, log)
+
+    @property
+    def aspectRatio(self):
+        """
+        Aspect ratio of original image, before taking into account the `.size` attribute of this object.
+
+        returns :
+            Aspect ratio as a (w, h) tuple, simplified using the smallest common denominator (e.g. 1080x720 pixels
+            becomes (3, 2))
+        """
+        # Return None if we don't have a texture yet
+        if (not hasattr(self, "_origSize")) or self._origSize is None:
+            return
+        # Work out aspect ratio (w/h)
+        frac = Fraction(*self._origSize)
+        return frac.numerator, frac.denominator
+
+    @property
+    def size(self):
+        return BaseVisualStim.size.fget(self)
+
+    @size.setter
+    def size(self, value):
+        # store requested size
+        self._requestedSize = value
+        isNone = numpy.asarray(value) == None
+        if (self.aspectRatio is not None) and (isNone.any()) and (not isNone.all()):
+            # If only one value is None, replace it with a value which maintains aspect ratio
+            pix = layout.Size(value, units=self.units, win=self.win).pix
+            # Replace None value with scaled pix value
+            i = isNone.argmax()
+            ni = isNone.argmin()
+            pix[i] = pix[ni] * self.aspectRatio[i] / self.aspectRatio[ni]
+            # Recreate layout object from pix
+            value = layout.Size(pix, units="pix", win=self.win)
+        elif (self.aspectRatio is not None) and (isNone.all()):
+            # If both values are None, use pixel size
+            value = layout.Size(self._origSize, units="pix", win=self.win)
+
+        # Do base setting
+        BaseVisualStim.size.fset(self, value)
 
     @attributeSetter
     def mask(self, value):

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 import numpy
@@ -11,10 +11,13 @@ from os import path
 from psychopy import logging
 from psychopy.constants import (STARTED, PLAYING, PAUSED, FINISHED, STOPPED,
                                 NOT_STARTED, FOREVER)
-from psychopy.tools.filetools import pathToString
+from psychopy.tools.filetools import pathToString, defaultStim, defaultStimRoot
+from psychopy.tools.audiotools import knownNoteNames, stepsFromA
+from psychopy.tools.attributetools import AttributeGetSetMixin
 from sys import platform
 from .audioclip import AudioClip
-
+from ..hardware import DeviceManager
+from ..preferences.preferences import prefs
 
 if platform == 'win32':
     mediaLocation = "C:\\Windows\\Media"
@@ -23,26 +26,7 @@ elif platform == 'darwin':
 elif platform.startswith("linux"):
     mediaLocation = "/usr/share/sounds"
 
-stepsFromA = {
-    'C': -9,
-    'Csh': -8, 'C#': -8,
-    'Dfl': -8, 'D♭': -8,
-    'D': -7,
-    'Dsh': -6, 'D#': -6,
-    'Efl': -6, 'E♭': -6,
-    'E': -5,
-    'F': -4,
-    'Fsh': -3, 'F#': -3,
-    'Gfl': -3, 'G♭': -3,
-    'G': -2,
-    'Gsh': -1, 'G#': -1,
-    'Afl': -1, 'A♭': -1,
-    'A': +0,
-    'Ash': +1, 'A#': +1,
-    'Bfl': +1, 'B♭': +1,
-    'B': +2,
-    'Bsh': +2, 'B#': +2}
-knownNoteNames = sorted(stepsFromA.keys())
+
 
 
 def apodize(soundArray, sampleRate):
@@ -118,7 +102,7 @@ class HammingWindow():
         return block
 
 
-class _SoundBase():
+class _SoundBase(AttributeGetSetMixin):
     """Base class for sound object, from one of many ways.
     """
     # Must be provided by class SoundPygame or SoundPyo:
@@ -130,6 +114,28 @@ class _SoundBase():
     # def setVolume(self, newVol, log=True):
     # def _setSndFromFile(self, fileName):
     # def _setSndFromArray(self, thisArray):
+
+    def _parseSpeaker(self, speaker):
+        if speaker is None:
+            # if no device, populate from prefs
+            pref = prefs.hardware['audioDevice']
+            if isinstance(pref, (list, tuple)):
+                pref = pref[0]
+            speaker = pref
+        # look for device if initialised
+        device = DeviceManager.getDevice(speaker)
+        # if no matching name, try matching index
+        if device is None:
+            device = DeviceManager.getDeviceBy("index", speaker)
+        # if still no match, make a new device
+        if device is None:
+            device = DeviceManager.addDevice(
+                deviceClass="psychopy.hardware.speaker.SpeakerDevice",
+                deviceName=speaker,
+                index=speaker,
+            )
+
+        return device
 
     def setSound(self, value, secs=0.5, octave=4, hamming=True, log=True):
         """Set the sound to be played.
@@ -163,6 +169,9 @@ class _SoundBase():
         """
         # Re-init sound to ensure bad values will raise error during setting:
         self._snd = None
+
+        if isinstance(value, str) and value in defaultStim:
+            value = defaultStimRoot / defaultStim[value]
 
         # Coerces pathlib obj to string, else returns inputted value
         value = pathToString(value)
@@ -201,10 +210,27 @@ class _SoundBase():
         elif isinstance(value, (list, numpy.ndarray,)):
             # create a sound from the input array/list
             self._setSndFromArray(numpy.array(value))
-        elif isinstance(value, AudioClip):
-            # from an audio clip object
+        elif isinstance(value, AudioClip):  # from an audio clip object
+            # check if we should resample the audio clip to match the device
+            if self.sampleRate is None:
+                logging.warning(
+                    "Sound output sample rate not set. The provided AudioClip "
+                    "requires a sample rate of {} Hz for playback which may "
+                    "not match the device settings.".format(value.sampleRateHz)) 
+
+                self.sampleRate = value.sampleRateHz
+
+            if self.sampleRate != value.sampleRateHz:
+                logging.warning(
+                    "Resampling to match sound device sample rate (from {} "
+                    "to {} Hz), distortion may occur.".format(
+                        value.sampleRateHz, self.sampleRate))
+
+                # resample with the new sample rate using the AudioClip method
+                value = value.resample(self.sampleRate, copy=True)
+
             self._setSndFromArray(value.samples)
-            self.sampleRate = value.sampleRateHz
+
         # did we succeed?
         if self._snd is None:
             pass  # raise ValueError, "Could not make a "+value+" sound"

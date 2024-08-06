@@ -5,7 +5,7 @@
 """
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from pathlib import Path
@@ -37,13 +37,14 @@ from psychopy import logging
 # (JWP has no idea why!)
 from psychopy.tools.arraytools import val2array
 from psychopy.tools.attributetools import (attributeSetter, logAttrib,
-                                           setAttribute)
+                                           setAttribute, AttributeGetSetMixin)
 from psychopy.tools.monitorunittools import (cm2pix, deg2pix, pix2cm,
                                              pix2deg, convertToPix)
 from psychopy.visual.helpers import (pointInPolygon, polygonsOverlap,
                                      setColor, findImageFile)
 from psychopy.tools.typetools import float_uint8
 from psychopy.tools.arraytools import makeRadialMatrix, createLumPattern
+from psychopy.event import Mouse
 from psychopy.tools.colorspacetools import dkl2rgb, lms2rgb  # pylint: disable=W0611
 
 from . import globalVars
@@ -80,7 +81,7 @@ mixin(s) as needed to add functionality.
 """
 
 
-class MinimalStim:
+class MinimalStim(AttributeGetSetMixin):
     """Non-visual methods and attributes for BaseVisualStim and RatingScale.
 
     Includes: name, autoDraw, autoLog, status, __str__
@@ -93,6 +94,7 @@ class MinimalStim:
             self.__dict__['name'] = 'unnamed %s' % self.__class__.__name__
         self.status = NOT_STARTED
         self.autoLog = autoLog
+        self.validator = None
         super(MinimalStim, self).__init__()
         if self.autoLog:
             msg = ("%s is calling MinimalStim.__init__() with autolog=True. "
@@ -647,15 +649,27 @@ class ForeColorMixin(BaseColorMixin, LegacyForeColorMixin):
     def color(self, value):
         self.foreColor = value
 
+    @property
+    def fontColor(self):
+        """Alternative way of setting `foreColor`."""
+        return self.foreColor
+
+    @fontColor.setter
+    def fontColor(self, value):
+        self.foreColor = value
+
     def setForeColor(self, color, colorSpace=None, operation='', log=None):
         """Hard setter for foreColor, allows suppression of the log message,
         simultaneous colorSpace setting and calls update methods.
         """
-        setColor(obj=self, colorAttrib="foreColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation)
+        setColor(obj=self, colorAttrib="foreColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation, log=log)
         # Trigger color update for components like Textbox which have different behaviours for a hard setter
         self.updateColors()
 
     def setColor(self, color, colorSpace=None, operation='', log=None):
+        self.setForeColor(color, colorSpace=colorSpace, operation=operation, log=log)
+
+    def setFontColor(self, color, colorSpace=None, operation='', log=None):
         self.setForeColor(color, colorSpace=colorSpace, operation=operation, log=log)
 
 
@@ -694,16 +708,28 @@ class FillColorMixin(BaseColorMixin, LegacyFillColorMixin):
     def backColor(self, value):
         self.fillColor = value
 
+    @property
+    def backgroundColor(self):
+        """Alternative way of setting fillColor"""
+        return self.fillColor
+
+    @backgroundColor.setter
+    def backgroundColor(self, value):
+        self.fillColor = value
+
     def setFillColor(self, color, colorSpace=None, operation='', log=None):
         """Hard setter for fillColor, allows suppression of the log message,
         simultaneous colorSpace setting and calls update methods.
         """
-        setColor(obj=self, colorAttrib="fillColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation)
+        setColor(obj=self, colorAttrib="fillColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation, log=log)
         # Trigger color update for components like Textbox which have different behaviours for a hard setter
         self.updateColors()
 
     def setBackColor(self, color, colorSpace=None, operation='', log=None):
-        self.setFillColor(color, colorSpace=None, operation='', log=None)
+        self.setFillColor(color, colorSpace=colorSpace, operation=operation, log=log)
+
+    def setBackgroundColor(self, color, colorSpace=None, operation='', log=None):
+        self.setFillColor(color, colorSpace=colorSpace, operation=operation, log=log)
 
 
 class BorderColorMixin(BaseColorMixin, LegacyBorderColorMixin):
@@ -741,12 +767,28 @@ class BorderColorMixin(BaseColorMixin, LegacyBorderColorMixin):
         """Hard setter for `fillColor`, allows suppression of the log message,
         simultaneous colorSpace setting and calls update methods.
         """
-        setColor(obj=self, colorAttrib="borderColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation)
+        setColor(obj=self, colorAttrib="borderColor", color=color, colorSpace=colorSpace or self.colorSpace, operation=operation, log=log)
         # Trigger color update for components like Textbox which have different behaviours for a hard setter
         self.updateColors()
 
     def setLineColor(self, color, colorSpace=None, operation='', log=None):
         self.setBorderColor(color, colorSpace=None, operation='', log=None)
+
+    @attributeSetter
+    def borderWidth(self, value):
+        self.__dict__['borderWidth'] = value
+        return self.__dict__['borderWidth']
+
+    def setBorderWidth(self, newWidth, operation='', log=None):
+        setAttribute(self, 'borderWidth', newWidth, log, operation)
+
+    @attributeSetter
+    def lineWidth(self, value):
+        self.__dict__['borderWidth'] = value
+        return self.__dict__['borderWidth']
+
+    def setLineWidth(self, newWidth, operation='', log=None):
+        setAttribute(self, 'lineWidth', newWidth, log, operation)
 
 
 class ColorMixin(ForeColorMixin, FillColorMixin, BorderColorMixin):
@@ -949,7 +991,7 @@ class TextureMixin:
         """
 
         # transform all variants of `None` to that, simplifies conditions below
-        if tex in ["none", "None", "color"]:
+        if isinstance(tex, str) and tex in ["none", "None", "color"]:
             tex = None
 
         # Create an intensity texture, ranging -1:1.0
@@ -1031,13 +1073,19 @@ class TextureMixin:
                     raise IOError(msg % (tex, os.path.abspath(tex)))
             elif hasattr(tex, 'getVideoFrame'):  # camera or movie textures
                 # get an image to configure the initial texture store
-                frame = tex.getVideoFrame()
-                if frame is not None:
-                    frameSize = frame.size
+                if hasattr(tex, 'frameSize'):
+                    if tex.frameSize is None:
+                        raise RuntimeError(
+                            "`Camera.frameSize` is not yet specified, cannot "
+                            "initialize texture!")
+                    self._origSize = frameSize = tex.frameSize
+                    # empty texture for initialization
+                    blankTexture = numpy.zeros(
+                        (frameSize[0] * frameSize[1] * 3), dtype=numpy.uint8)
                     im = Image.frombuffer(
                         'RGB',
                         frameSize,
-                        frame.colorData
+                        blankTexture
                     ).transpose(Image.FLIP_TOP_BOTTOM)
                 else:
                     msg = "Failed to initialize texture from camera stream."
@@ -1613,6 +1661,76 @@ class WindowMixin:
         self._updateListShaders()
 
 
+class DraggingMixin:
+    """
+    Mixin to give an object innate dragging behaviour.
+
+    Attributes
+    ==========
+    draggable : bool
+        Can this object be dragged by a Mouse click?
+    isDragging : bool
+        Is this object currently being dragged? (read only)
+
+    Methods
+    ==========
+    doDragging :
+        Call this each frame to make sure dragging behaviour happens. If
+        `autoDraw` and `draggable` are both True, then this will be called
+        automatically by the Window object on flip.
+    """
+    isDragging = False
+
+    def doDragging(self):
+        """
+        If this stimulus is draggable, do the necessary actions on a frame
+        flip to drag it.
+        """
+        # if not draggable, do nothing
+        if not self.draggable:
+            return
+        # if something else is already dragging, do nothing
+        if self.win.currentDraggable is not None and self.win.currentDraggable != self:
+            return
+        # if just clicked on, start dragging
+        self.isDragging = self.isDragging or self.mouse.isPressedIn(self, buttons=[0])
+        # if click is released, stop dragging
+        self.isDragging = self.isDragging and self.mouse.getPressed()[0]
+        # get relative mouse pos
+        rel = self.mouse.getRel()
+
+        # if dragging, do necessary updates
+        if self.isDragging:
+            # set as current draggable
+            self.win.currentDraggable = self
+            # get own pos in win units
+            pos = getattr(self._pos, self.win.units)
+            # add mouse movement to pos
+            setattr(
+                self._pos,
+                self.win.units,
+                pos + rel
+            )
+            # set pos
+            self.pos = getattr(self._pos, self.units)
+        else:
+            # remove as current draggable
+            self.win.currentDraggable = None
+
+    @attributeSetter
+    def draggable(self, value):
+        """
+        Can this stimulus be dragged by a mouse click?
+        """
+        # if we don't have reference to a mouse, make one
+        if not isinstance(self.mouse, Mouse):
+            self.mouse = Mouse(visible=self.win.mouseVisible, win=self.win)
+            # make sure it has an initial pos for rel pos comparisons
+            self.mouse.lastPos = self.mouse.getPos()
+        # store value
+        self.__dict__['draggable'] = value
+
+
 class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
     """A template for a visual stimulus class.
 
@@ -1628,6 +1746,7 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         self.win = win
         self.units = units
         self._rotationMatrix = [[1., 0.], [0., 1.]]  # no rotation by default
+        self.mouse = None
         # self.autoLog is set at end of MinimalStim.__init__
         super(BaseVisualStim, self).__init__(name=name, autoLog=autoLog)
         if self.autoLog:
@@ -1643,17 +1762,10 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         (transparent). :ref:`Operations <attrib-operations>` are supported.
         Precisely how this is used depends on the :ref:`blendMode`.
         """
-        alphas = []
-        if hasattr(self, '_foreColor'):
-            alphas.append(self._foreColor.alpha)
-        if hasattr(self, '_fillColor'):
-            alphas.append(self._fillColor.alpha)
-        if hasattr(self, '_borderColor'):
-            alphas.append(self._borderColor.alpha)
-        if alphas:
-            return mean(alphas)
-        else:
+        if not hasattr(self, "_opacity"):
             return 1
+        
+        return self._opacity 
 
     @opacity.setter
     def opacity(self, value):
@@ -1661,6 +1773,7 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         if value is None:
             # If opacity is set to be None, this indicates that each color should handle its own opacity
             return
+        self._opacity = value
         if hasattr(self, '_foreColor'):
             if self._foreColor != None:
                 self._foreColor.alpha = value
@@ -1792,7 +1905,10 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         if units is None:
             # need to change this to create several units from one
             units = self.units
-        setAttribute(self, 'size', val2array(newSize, False), log, operation)
+        # If we have an original size (e.g. for an image or movie), then we CAN set size with None
+        useNone = hasattr(self, "origSize")
+        # Set attribute
+        setAttribute(self, 'size', val2array(newSize, useNone), log, operation)
 
     def setOri(self, newOri, operation='', log=None):
         """Usually you can use 'stim.attribute = value' syntax instead,
@@ -1820,7 +1936,7 @@ class BaseVisualStim(MinimalStim, WindowMixin, LegacyVisualMixin):
         """
         # format the input value as float vectors
         if type(val) in [tuple, list, numpy.ndarray]:
-            val = val2array(val)
+            val = val2array(val, length=len(val))
 
         # Set attribute with operation and log
         setAttribute(self, attrib, val, log, op)

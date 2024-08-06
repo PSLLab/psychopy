@@ -19,6 +19,8 @@ If your copy of the repository comes from before we used the 2-trunk GitFlow the
 - :ref:`addFeature`
 - :ref:`pullRequest`
 
+If you're *really* new to contributing you might want to walk through the steps in our :ref:`editingDocs` page to make a small change before trying out a bigger one!
+
 .. _gitWorkflow:
 
 PsychoPy Git Flow
@@ -117,8 +119,8 @@ Now that you've fetched the latest version of psychopy using git, you should run
 To check that worked you should open python in the terminal and try to import psychopy and see if it's the version you expected::
 
     $ python
-    Python 3.6.8 (v3.6.8:3c6b436a57, Dec 24 2018, 02:04:31)
-    [GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.57)] on darwin
+    Python 3.8.10 (v3.8.10:3d8993a744, May  3 2021, 08:55:58)
+    [Clang 6.0 (clang-600.0.57)] on darwin
     Type "help", "copyright", "credits" or "license" for more information.
     >>> import psychopy
     >>> print(psychopy.__version__)

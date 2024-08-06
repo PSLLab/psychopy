@@ -3,7 +3,7 @@
 
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 import copy
 import psychopy
@@ -13,6 +13,7 @@ from psychopy.data.utils import importConditions, listFromString
 from psychopy.visual.basevisual import (BaseVisualStim,
                                         ContainerMixin,
                                         ColorMixin)
+from psychopy.tools import stimulustools as stt
 from psychopy import logging, layout
 from random import shuffle
 from pathlib import Path
@@ -100,24 +101,7 @@ class Form(BaseVisualStim, ContainerMixin, ColorMixin):
         Randomize order of Form elements
     """
 
-    knownStyles = {
-        'light': {
-            'fillColor': [0.89, 0.89, 0.89],
-            'borderColor': None,
-            'itemColor': 'black',
-            'responseColor': 'black',
-            'markerColor': [0.89, -0.35, -0.28],
-            'font': "Open Sans",
-        },
-        'dark': {
-            'fillColor': [-0.19, -0.19, -0.14],
-            'borderColor': None,
-            'itemColor': 'white',
-            'responseColor': 'white',
-            'markerColor': [0.89, -0.35, -0.28],
-            'font': "Open Sans",
-        },
-    }
+    knownStyles = stt.formStyles
 
     def __init__(self,
                  win,
@@ -138,6 +122,7 @@ class Form(BaseVisualStim, ContainerMixin, ColorMixin):
                  units='height',
                  randomize=False,
                  autoLog=True,
+                 depth=0,
                  # legacy
                  color=None,
                  foreColor=None
@@ -154,7 +139,7 @@ class Form(BaseVisualStim, ContainerMixin, ColorMixin):
         self.itemPadding = itemPadding
         self.scrollSpeed = self.setScrollSpeed(self.items, 4)
         self.units = units
-        self.depth = 0
+        self.depth = depth
 
         # Appearance
         self.colorSpace = colorSpace
@@ -701,7 +686,7 @@ class Form(BaseVisualStim, ContainerMixin, ColorMixin):
             The aperture setting viewable area for forms
         """
         aperture = psychopy.visual.Aperture(win=self.win,
-                                            name='aperture',
+                                            name=f"{self.name}_aperture",
                                             units=self.units,
                                             shape='square',
                                             size=self.size,
@@ -875,7 +860,7 @@ class Form(BaseVisualStim, ContainerMixin, ColorMixin):
         # draw the box and scrollbar
         self._drawExternalDecorations()
         # enable aperture
-        self.aperture.enable()
+        self.aperture._reset()
         # draw the box and scrollbar
         self._drawDecorations()
         # Draw question and response objects

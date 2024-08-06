@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 from pathlib import Path
@@ -10,8 +10,6 @@ from pathlib import Path
 from psychopy.experiment import Param
 from psychopy.experiment.components import getInitVals, _translate
 from psychopy.experiment.components.polygon import PolygonComponent
-from psychopy.localization import _localized as __localized
-_localized = __localized.copy()
 
 __author__ = 'Jeremy Gray, Jon Peirce'
 # March 2011; builder-component for Yuri Spitsyn's visual.Aperture class
@@ -19,8 +17,12 @@ __author__ = 'Jeremy Gray, Jon Peirce'
 
 
 class ApertureComponent(PolygonComponent):
-    """An event class for using GL stencil to restrict the viewing area to a
-    circle or square of a given size and position"""
+    """
+    This component can be used to filter the visual display, as if the subject is looking at it
+    through an opening (i.e. add an image component, as the background image, then add an aperture
+    to show part of the image). Only one aperture is enabled at a time; you can't "double up": a
+    second aperture takes precedence.
+    """
 
     categories = ['Stimuli']
     targets = ['PsychoPy']
@@ -83,6 +85,7 @@ class ApertureComponent(PolygonComponent):
     def writeInitCode(self, buff):
         # do writing of init
         inits = getInitVals(self.params)
+        inits['depth'] = -self.getPosInRoutine()
 
         # additional substitutions
         if self.params['units'].val == 'from exp settings':
@@ -102,7 +105,8 @@ class ApertureComponent(PolygonComponent):
         code = (
                 "win=win, name='%(name)s',\n"
                 "units=%(units)s, size=%(size)s, pos=%(pos)s, ori=%(ori)s,\n"
-                "shape=%(vertices)s, anchor=%(anchor)s\n"
+                "shape=%(vertices)s, anchor=%(anchor)s\n,"
+                "depth=%(depth)s\n"
         )
         buff.writeIndentedLines(code % inits)
 
@@ -121,16 +125,16 @@ class ApertureComponent(PolygonComponent):
                 f"# *{params['name']}* updates\n")
         buff.writeIndented(code)
         # writes an if statement to determine whether to draw etc
-        self.writeStartTestCode(buff)
-        buff.writeIndented("%(name)s.enabled = True\n" % self.params)
+        indented = self.writeStartTestCode(buff)
+        if indented:
+            buff.writeIndented("%(name)s.enabled = True\n" % self.params)
         # to get out of the if statement
-        buff.setIndentLevel(-1, relative=True)
-        if self.params['stopVal'].val not in ['', None, -1, 'None']:
-            # writes an if statement to determine whether to draw etc
-            self.writeStopTestCode(buff)
+        buff.setIndentLevel(-indented, relative=True)
+        indented = self.writeStopTestCode(buff)
+        if indented:
             buff.writeIndented("%(name)s.enabled = False\n" % self.params)
-            # to get out of the if statement
-            buff.setIndentLevel(-2, relative=True)
+        # to get out of the if statement
+        buff.setIndentLevel(-indented, relative=True)
         # set parameters that need updating every frame
         # do any params need updating? (this method inherited from _base)
         if self.checkNeedToUpdate('set every frame'):

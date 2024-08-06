@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Part of the PsychoPy library
-# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2022 Open Science Tools Ltd.
+# Copyright (C) 2002-2018 Jonathan Peirce (C) 2019-2024 Open Science Tools Ltd.
 # Distributed under the terms of the GNU General Public License (GPL).
 
 """A Backend class defines the core low-level functions required by a Window
@@ -15,14 +15,15 @@ and initialize an instance using the attributes of the Window.
 
 import sys
 import os
+import platform
 import numpy as np
 
 import psychopy
-from psychopy import core
+from psychopy import core, prefs
 from psychopy.hardware import mouse
 from psychopy import logging, event, platform_specific
 from psychopy.tools.attributetools import attributeSetter
-from psychopy.tests import _vmTesting
+from psychopy.tools import systemtools
 from .gamma import setGamma, setGammaRamp, getGammaRamp, getGammaRampSize
 from .. import globalVars
 from ._base import BaseBackend
@@ -178,33 +179,45 @@ class PygletBackend(BaseBackend):
                     'integer greater than two. Disabling.')
                 win.multiSample = False
 
-        if pyglet.version < '1.4':
-            allScrs = _default_display_.get_screens()
+        skip_screen_warn = False
+        if platform.system() == 'Linux':
+            from pyglet.canvas.xlib import NoSuchDisplayException
+            try:
+                display = pyglet.canvas.Display(x_screen=win.screen)
+                # in this case, we'll only get a single x-screen back
+                skip_screen_warn = True
+            except NoSuchDisplayException:
+                # Maybe xinerama? Try again and get the specified screen later
+                display = pyglet.canvas.Display(x_screen=0)
+
+            allScrs = display.get_screens()
         else:
             allScrs = _default_display_.get_screens()
 
-        # Screen (from Exp Settings) is 1-indexed,
+        # Screen (from Exp Settings) is 0-indexed,
         # so the second screen is Screen 1
         if len(allScrs) < int(win.screen) + 1:
-            logging.warn("Requested an unavailable screen number - "
-                         "using first available.")
+            if not skip_screen_warn:
+                logging.warn("Requested an unavailable screen number - "
+                             "using first available.")
             thisScreen = allScrs[0]
         else:
             thisScreen = allScrs[win.screen]
             if win.autoLog:
                 logging.info('configured pyglet screen %i' % win.screen)
 
-        # options that the user might want
-        config = GL.Config(depth_size=win.depthBits,
-                           double_buffer=True,
-                           sample_buffers=sample_buffers,
-                           samples=aa_samples,
-                           stencil_size=win.stencilBits,
-                           stereo=win.stereo,
-                           vsync=vsync,
-                           red_size=win.bpc[0],
-                           green_size=win.bpc[1],
-                           blue_size=win.bpc[2])
+        # configure the window context
+        config = GL.Config(
+            depth_size=win.depthBits,
+            double_buffer=True,
+            sample_buffers=sample_buffers,
+            samples=aa_samples,
+            stencil_size=win.stencilBits,
+            stereo=win.stereo,
+            vsync=vsync,
+            red_size=win.bpc[0],
+            green_size=win.bpc[1],
+            blue_size=win.bpc[2])
 
         # check if we can have this configuration
         validConfigs = thisScreen.get_matching_configs(config)
@@ -225,29 +238,43 @@ class PygletBackend(BaseBackend):
             style = None
         else:
             style = 'borderless'
+
+        # create the window
         try:
             self.winHandle = pyglet.window.Window(
-                    width=w, height=h,
-                    caption="PsychoPy",
-                    fullscreen=win._isFullScr,
-                    config=config,
-                    screen=thisScreen,
-                    style=style)
+                width=w, height=h,
+                caption="PsychoPy",
+                fullscreen=win._isFullScr,
+                config=config,
+                screen=thisScreen,
+                style=style)
         except pyglet.gl.ContextException:
             # turn off the shadow window an try again
             pyglet.options['shadow_window'] = False
             self.winHandle = pyglet.window.Window(
-                    width=w, height=h,
-                    caption="PsychoPy",
-                    fullscreen=self._isFullScr,
-                    config=config,
-                    screen=thisScreen,
-                    style=style)
+                width=w, height=h,
+                caption="PsychoPy",
+                fullscreen=win._isFullScr,
+                config=config,
+                screen=thisScreen,
+                style=style)
             logging.warning(
                 "Pyglet shadow_window has been turned off. This is "
                 "only an issue for you if you need multiple "
                 "stimulus windows, in which case update your "
                 "graphics card and/or graphics drivers.")
+        try:
+            icns = [
+                pyglet.image.load(
+                    prefs.paths['assets'] + os.sep + "Psychopy Window Favicon@16w.png"
+                ),
+                pyglet.image.load(
+                    prefs.paths['assets'] + os.sep + "Psychopy Window Favicon@32w.png"
+                ),
+            ]
+            self.winHandle.set_icon(*icns)
+        except BaseException:
+            pass
 
         if sys.platform == 'win32':
             # pyHook window hwnd maps to:
@@ -318,7 +345,7 @@ class PygletBackend(BaseBackend):
             # (but need to alter x,y handling then)
             self.winHandle.set_mouse_visible(False)
         if not win.pos:
-            # work out where the centre should be 
+            # work out where the centre should be
             if win.useRetina:
                 win.pos = [(thisScreen.width - win.clientSize[0]/2) / 2,
                            (thisScreen.height - win.clientSize[1]/2) / 2]
@@ -331,8 +358,8 @@ class PygletBackend(BaseBackend):
                                         int(win.pos[1] + thisScreen.y))
 
         try:  # to load an icon for the window
-            iconFile = os.path.join(psychopy.prefs.paths['resources'],
-                                    'psychopy.ico')
+            iconFile = os.path.join(psychopy.prefs.paths['assets'],
+                                    'window.ico')
             icon = pyglet.image.load(filename=iconFile)
             self.winHandle.set_icon(icon)
         except Exception:
@@ -381,9 +408,6 @@ class PygletBackend(BaseBackend):
             pyglet.media.dispatch_events()  # for sounds to be processed
         if flipThisFrame:
             self.winHandle.flip()
-
-    def setMouseVisibility(self, visibility):
-        self.winHandle.set_mouse_visible(visibility)
 
     def setCurrent(self):
         """Sets this window to be the current rendering target.
@@ -454,7 +478,7 @@ class PygletBackend(BaseBackend):
     @attributeSetter
     def gamma(self, gamma):
         self.__dict__['gamma'] = gamma
-        if _vmTesting:
+        if systemtools.isVM_CI():
             return
         if self._origGammaRamp is None:  # get the original if we haven't yet
             self._getOrigGammaRamp()
@@ -473,7 +497,7 @@ class PygletBackend(BaseBackend):
         """Gets the gamma ramp or sets it to a new value (an Nx3 or Nx1 array)
         """
         self.__dict__['gammaRamp'] = gammaRamp
-        if _vmTesting:
+        if systemtools.isVM_CI():
             return
         if self._origGammaRamp is None:  # get the original if we haven't yet
             self._getOrigGammaRamp()
@@ -704,6 +728,42 @@ class PygletBackend(BaseBackend):
     # --------------------------------------------------------------------------
     # Mouse event handlers and utilities
     #
+    @property
+    def mouseVisible(self):
+        """Get the visibility of the mouse cursor.
+
+        Returns
+        -------
+        bool
+            `True` if the mouse cursor is visible.
+
+        """
+
+        return self.winHandle._mouse_visible
+
+    @mouseVisible.setter
+    def mouseVisible(self, visibility):
+        """Set the visibility of the mouse cursor.
+
+        Parameters
+        ----------
+        visibility : bool
+            If `True`, the mouse cursor is visible.
+
+        """
+        self.winHandle.set_mouse_visible(visibility)
+
+    def setMouseVisibility(self, visibility):
+        """Set the visibility of the mouse cursor.
+
+        Parameters
+        ----------
+        visibility : bool
+            If `True`, the mouse cursor is visible.
+
+        """
+        self.winHandle.set_mouse_visible(visibility)
+
     def onMouseButton(self, *args, **kwargs):
         """Event handler for any mouse button event (pressed and released).
 
