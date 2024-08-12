@@ -399,7 +399,8 @@ class Flow(list):
                     "psychoJS.schedule(psychoJS.gui.DlgFromDict({\n"
                     "  dictionary: expInfo,\n"
                     "  title: 'Starting up',\n"
-                    "  text: 'Downloading and starting up this part of the experiment.<br>The OK button will be enabled once everything is downloaded.<br>Press OK to proceed.'}));\n"
+                    "  text: 'Downloading and starting up this part of the experiment.<br>The OK button will be enabled once everything is downloaded.<br>Press OK to proceed.',\n"
+                    "  requireParticipantClick: false}));\n"
                     "\n"
                     "const flowScheduler = new Scheduler(psychoJS);\n"
                     "const dialogCancelScheduler = new Scheduler(psychoJS);\n"
@@ -550,16 +551,13 @@ class Flow(list):
             script.writeIndentedLines("resources: [\n")
             script.setIndentLevel(1, relative=True)
             code = ""
-            for idx, resource in enumerate(resourceFiles):
-                if "https://" in resource:
-                    name = resource.split('/')[-1]
-                    fullPath = resource
-                    temp = f"{{'name': '{name}', 'path': '{fullPath}'}}"
-                else:
-                    temp = "{{'name': '{0}', 'path': '{1}{0}'}}".format(resource, resourceFolderStr)
-                code += temp
-                if idx != (len(resourceFiles)-1):
-                    code += ",\n"  # Trailing comma
+            for name, resource in resourceFiles:
+                if "https://" not in resource:
+                    # URL paths are already fine
+                    # Anything else make it relative to resources folder
+                    resource = resourceFolderStr + resource
+                # Add this line
+                code += f"{{'name': '{name}', 'path': '{resource}'}},\n"
             script.writeIndentedLines(code)
             script.setIndentLevel(-1, relative=True)
             script.writeIndented("]\n")

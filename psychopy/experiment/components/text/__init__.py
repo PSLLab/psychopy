@@ -90,12 +90,12 @@ class TextComponent(BaseVisualComponent):
             languageStyle, valType='str', inputType="choice", categ='Formatting',
             allowedVals=['LTR', 'RTL', 'Arabic'],
             hint=_translate("Handle right-to-left (RTL) languages and Arabic reshaping"),
-            label=_translate['languageStyle'])
+            label=_translate('languageStyle'))
         self.params['alignText'] = Param(
             alignText, valType='str', inputType="choice", categ='Formatting',
             allowedVals=['left', 'center', 'right'],
             hint=_translate("Text alignment"),
-            label=_translate['alignText'])
+            label=_translate('alignText'))
 
         del self.params['fillColor']
         del self.params['borderColor']

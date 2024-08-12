@@ -222,7 +222,8 @@ class SettingsComponent:
             escapeKey, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which key to use to terminate experiment early"),
             allowedVals=['escape', 'f12'],
-            label=_translate["Escape Key to Use"])
+            label=_translate("Escape Key to Use")
+        )
         self.depends.append(
             {"dependsOn": "Show info dlg",  # must be param name
              "condition": "==True",  # val to check for
@@ -514,12 +515,12 @@ class SettingsComponent:
             onlineSystem, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which online system to use for data collection"),
             allowedVals=['JATOS', 'Pavlovia'],
-            label=_translate["Online system"], categ='Online')
+            label=_translate("Online system"), categ='Online')
         self.params['Participant source'] = Param(
             participantSource, valType='str', allowedTypes=[], inputType="choice",
             hint=_translate("Which online system will be used to recruit participants"),
             allowedVals=['PRP', 'Prolific'],
-            label=_translate["Participant source"], categ='Online')
+            label=_translate("Participant source"), categ='Online')
         self.params['Resources'] = Param(
             [], valType='list', inputType="fileList", allowedTypes=[],
             hint=_translate("Any additional resources needed"),
@@ -2252,7 +2253,7 @@ class SettingsComponent:
 
         if self.params['Online system'].val == 'JATOS':
             code = ("psychoJS.window.close();\n"
-                    "await psychoJS.quit({message: message, isCompleted: isCompleted});\n"
+                    "await psychoJS.quit({message: message, isCompleted: isCompleted, showOK: false});\n"
                     "if(isCompleted) {\n")
             buff.writeIndentedLines(code)
             buff.setIndentLevel(1, relative=True)
