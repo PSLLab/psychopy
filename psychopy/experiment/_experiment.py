@@ -337,7 +337,7 @@ class Experiment:
                 "if __name__ == '__main__':\n"
                 "    # call all functions in order\n"
             )
-            if self_copy.settings.params['Show info dlg'].val:
+            if self_copy.settings.params['Show info dlg'].val and not self_copy.settings.params['PSL Lab Code']:
                 # Only show exp info dlg if indicated to by settings
                 code += (
                 "    expInfo = showExpInfoDlg(expInfo=expInfo)\n"

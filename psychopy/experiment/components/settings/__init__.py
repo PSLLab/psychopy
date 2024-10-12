@@ -90,6 +90,9 @@ class SettingsComponent:
             consoleLoggingLevel="warning",
             color='$[0,0,0]', colorSpace='rgb', enableEscape=True,
             escapeKey='f12',
+            pslLabCode=True,
+            expVersion='1.0',
+            intendedRefreshRate='60',
             measureFrameRate=True, frameRate="", frameRateMsg=_translate(
                 "Attempting to measure frame rate of screen, please wait..."
             ),
@@ -154,10 +157,13 @@ class SettingsComponent:
         # --- Basic params ---
         self.order += [
             'expName',
+            'expVersion',
+            'intendedRefreshRate',
             'runMode',
             'Use version',
             'Enable Escape',
             'Escape Key to Use',
+            'PSL Lab Code',
             'rush',
             'Show info dlg',
             'Experiment info',
@@ -168,6 +174,16 @@ class SettingsComponent:
                 "Name of the entire experiment (taken by default from the filename on save)"
             ),
             label=_translate("Experiment name")
+        )
+        self.params['Experiment Version'] = Param(
+            expVersion, valType='str', inputType="single",
+            hint=_translate("Experiment Version"),
+            label=_translate("Experiment Version")
+        )
+        self.params['Expected Refresh Rate'] = Param(
+            intendedRefreshRate, valType='str', inputType="single",
+            hint=_translate("Expected Refresh Rate"),
+            label=_translate("Expected Refresh Rate")
         )
         self.params['runMode'] = Param(
             runMode, valType="code", inputType="choice", categ="Basic",
@@ -223,6 +239,13 @@ class SettingsComponent:
             hint=_translate("Which key to use to terminate experiment early"),
             allowedVals=['escape', 'f12'],
             label=_translate("Escape Key to Use")
+        )
+        self.params['PSL Lab Code'] = Param(
+            pslLabCode, valType='bool', inputType="bool", categ="Basic",
+            hint=_translate(
+                "Enable PSL Lab Code in experiment"
+            ),
+            label=_translate("Enable PSL Lab Code")
         )
         self.depends.append(
             {"dependsOn": "Show info dlg",  # must be param name
@@ -955,6 +978,10 @@ class SettingsComponent:
             "from numpy.random import %s\n" % ', '.join(_numpyRandomImports) +
             "import os  # handy system and path functions\n" +
             "import sys  # to get file system encoding\n"
+            "import gzip\n"
+            "import pickle\n"
+            "import platform\n"
+            "import getpass\n"
             "if sys.platform == 'linux':\n"
             "    import ctypes\n"
             "    xlib = ctypes.cdll.LoadLibrary('libX11.so')\n"
@@ -1006,6 +1033,17 @@ class SettingsComponent:
             "# store info about the experiment session\n"
             "psychopyVersion = '%(version)s'\n"
             "expName = %(expName)s  # from the Builder filename that created this script\n"
+            "os.chdir(_thisDir)\n"
+            "current_path = os.path.abspath(os.path.curdir)\n"
+            "rem_path, task_name = os.path.split(current_path)\n"
+            "rem_path, exp_name = os.path.split(rem_path)\n"
+            "task_data_dir = None\n"
+            "data_dir = None\n"
+            "not_finished_file = None\n"
+            "def write_outlier(msg):\n"
+            "    out_msg = '{}: {}'.format(expInfo['expName'], msg)\n"
+            "    with open(data_dir + '/outlier.txt', 'a') as fin_outfile:\n"
+            "        fin_outfile.write(out_msg + '\\n')\n"
         )
         buff.writeIndentedLines(code % params)
         # get info for this experiment
@@ -1028,6 +1066,30 @@ class SettingsComponent:
             "\n"
         )
         buff.writeIndented(code)
+        if self.params['PSL Lab Code'].val:
+            code = (
+                "# check for subject_info.pklz in above directory and use that for subject number\n"
+                "if os.path.isfile('../subject_info.pklz'):\n"
+                "    with gzip.open('../subject_info.pklz','rb') as infile:\n"
+                "        saved_info = pickle.load(infile)\n"
+                "else:\n"
+                "    saved_info = {'participant': '999999', 'session': '1'}\n"
+                "saved_info['date'] = data.getDateStr()\n"
+                "# overwrite expInfo with session/participant from subject_info file\n"
+                "expInfo.update(saved_info)\n"
+                "expInfo['task_name'] = task_name\n"
+                "hostname = platform.node()\n"
+                "username = getpass.getuser()\n"
+                "expInfo['computer_name'] = hostname\n"
+                "expInfo['user_run_as'] = username\n"
+                "if 'session' not in expInfo:\n"
+                "    expInfo['session'] = 1\n"
+                "expInfo['expVersion'] = %(Experiment Version)s\n"
+            )
+            buff.writeIndented(code % params)
+
+        # lab code for updating expInfo
+        
 
         # write code for pilot mode
         code = (
@@ -1310,29 +1372,68 @@ class SettingsComponent:
             else:
                 params['dataDir'] = repr(self.exp.prefsBuilder['savedDataFolder'].strip())
 
-        code = (
-            "\n"
-            "# data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc\n"
-            f"if dataDir is None:\n"
-            f"    dataDir = %(dataDir)s\n"
-            f"if 'filename' not in locals():\n"
-            f"    filename = %(Data filename)s\n"
-            f"    # make sure filename is relative to dataDir\n"
-            f"    if os.path.isabs(filename):\n"
-            f"        dataDir = os.path.commonprefix([dataDir, filename])\n"
-            f"        filename = os.path.relpath(filename, dataDir)\n"
-        )
-        buff.writeIndentedLines(code % params)
+        if params['PSL Lab Code'].val:
+            code = (
+                "\n"
+                "global data_dir\n"
+                "global task_data_dir\n"
+                "global not_finished_file\n"
+                "psllab_debug_data = False\n"
+                "if (hostname[0:12] == 'psllab-417pc' or hostname[0:12] == 'psllab-415pc') and hostname[12:13] != '0':\n"
+                "    on_exp_pc = True\n"
+                "else:\n"
+                "    on_exp_pc = False\n"
+                "if not on_exp_pc or (username == 'experiment' and on_exp_pc and '/home/experiment/Experiments/Experiment_Testing' in current_path):\n"
+                "    psllab_debug_data = True\n"
+                "if psllab_debug_data == False and rem_path != '/home/experiment/Experiments/Current_Experiments':\n"
+                "    raise Exception('this experiment/task location is not correct, should be Exp_Name/Task_name hierarchical structure')\n"
+                "if psllab_debug_data:\n"
+                "   data_dir = current_path + os.sep + u'debugging_data/%s_session%s/' % (saved_info['participant'], saved_info['session'])\n"
+                "else:\n"
+                "   data_dir = u'/home/experiment/SeaDrive/Shared with me/RawData_%s/%s_session%s/' % (exp_name, saved_info['participant'], saved_info['session'])\n"
+                "task_data_dir = data_dir + os.sep + task_name + os.sep\n"
+                "if not os.path.isdir(task_data_dir):\n"
+                "    os.makedirs(task_data_dir)\n"
+                "filename = task_data_dir + '%s_session%s_%s_%s' % (saved_info['participant'],  saved_info['session'], task_name, saved_info['date'])\n"
+                "not_finished_file = '{}/{}_NotFinished.txt'.format(data_dir, task_name)\n"
+                "with open(not_finished_file, 'w') as outfile:\n"
+                "    outfile.write('not finished')\n"
+            )
+            buff.writeIndentedLines(code)
+        else:
+            code = (
+                "\n"
+                "# data file name stem = absolute path + name; later add .psyexp, .csv, .log, etc\n"
+                f"if dataDir is None:\n"
+                f"    dataDir = %(dataDir)s\n"
+                f"if 'filename' not in locals():\n"
+                f"    filename = %(Data filename)s\n"
+                f"    # make sure filename is relative to dataDir\n"
+                f"    if os.path.isabs(filename):\n"
+                f"        dataDir = os.path.commonprefix([dataDir, filename])\n"
+                f"        filename = os.path.relpath(filename, dataDir)\n"
+            )
+            buff.writeIndentedLines(code % params)
 
         # set up the ExperimentHandler
-        code = ("\n# an ExperimentHandler isn't essential but helps with data saving\n"
-                "thisExp = data.ExperimentHandler(\n"
-                "    name=expName, version='',\n"
-                "    extraInfo=expInfo, runtimeInfo=None,\n"
-                "    originPath=%(originPath)s,\n"
-                "    savePickle=%(Save psydat file)s, saveWideText=%(Save wide csv file)s,\n"
-                "    dataFileName=dataDir + os.sep + filename, sortColumns=%(sortColumns)s\n"
-                ")\n")
+        if params['PSL Lab Code'].val:
+            code = ("\n# an ExperimentHandler isn't essential but helps with data saving\n"
+                    "thisExp = data.ExperimentHandler(\n"
+                    "    name=expName, version='',\n"
+                    "    extraInfo=expInfo, runtimeInfo=None,\n"
+                    "    originPath=%(originPath)s,\n"
+                    "    savePickle=%(Save psydat file)s, saveWideText=%(Save wide csv file)s,\n"
+                    "    dataFileName=filename, sortColumns=%(sortColumns)s\n"
+                    ")\n")
+        else:
+            code = ("\n# an ExperimentHandler isn't essential but helps with data saving\n"
+                    "thisExp = data.ExperimentHandler(\n"
+                    "    name=expName, version='',\n"
+                    "    extraInfo=expInfo, runtimeInfo=None,\n"
+                    "    originPath=%(originPath)s,\n"
+                    "    savePickle=%(Save psydat file)s, saveWideText=%(Save wide csv file)s,\n"
+                    "    dataFileName=dataDir + os.sep + filename, sortColumns=%(sortColumns)s\n"
+                    ")\n")
         buff.writeIndentedLines(code % params)
 
         # enforce dict on column priority param
@@ -1949,14 +2050,29 @@ class SettingsComponent:
         )
         buff.writeIndentedLines(code % params)
         # do/skip frame rate measurement according to params
-        if self.params['measureFrameRate']:
+        if self.params['measureFrameRate'].val or self.params['PSL Lab Code'].val:
+            try:
+                intended_rate = int(self.params['Expected Refresh Rate'].val)
+            except ValueError:
+                print('Expected refresh rate is not an integer. Fix this in experiment settings.')
             code = (
-            "if expInfo is not None:\n"
-            "    # get/measure frame rate if not already in expInfo\n"
-            "    if win._monitorFrameRate is None:\n"
-            "        win._monitorFrameRate = win.getActualFrameRate(infoMsg=%(frameRateMsg)s)\n"
-            "    expInfo['frameRate'] = win._monitorFrameRate\n"
+                "if win._monitorFrameRate is None:\n"
+                "    win._monitorFrameRate = win.getActualFrameRate(infoMsg=%(frameRateMsg)s)\n"
+                "if expInfo is not None:\n"
+                "    # get/measure frame rate if not already in expInfo\n"
+                "    expInfo['frameRate'] = win._monitorFrameRate\n"
             )
+            if self.params['PSL Lab Code'].val:
+                code += (
+                    "if win._monitorFrameRate < (int(%(Expected Refresh Rate)s) - 1) or win._monitorFrameRate > (int(%(Expected Refresh Rate)s) + 1):\n"
+                    "    temp_filename = task_data_dir + 'BadRefreshRate_%%s_session%%s_%%s_%%s' %% (expInfo['participant'], expInfo['session'], task_name, expInfo['date'])\n"
+                    "    with open(temp_filename + '.txt', 'w') as outfile:\n"
+                    "        outfile.write('Measured refresh rate: %%s' %% expInfo['frameRate'])\n"
+                    "if ((hostname == 'psllab-415pc5.psllab.org' and (win.monitor.name != 'tobii' and win.monitor.name != 'dell23_1920')) or (win.monitor.name != 'dell23_1920')):\n"
+                    "    temp_filename = task_data_dir + 'BadMonitorCal_%%s_session%%s_%%s_%%s' %% (expInfo['participant'], expInfo['session'], task_name, expInfo['date'])\n"
+                    "    with open(temp_filename + '.txt', 'w') as outfile:\n"
+                    "        outfile.write('Monitor name used: %%s' %% win.monitor.name)\n"
+                )
             buff.writeIndentedLines(code % params)
         elif self.params['frameRate']:
             code = (
@@ -2016,6 +2132,11 @@ class SettingsComponent:
             '        Handler object for this experiment, contains the data to save and information about \n'
             '        where to save it to.\n'
             '    """\n'
+            '    if os.path.isfile(not_finished_file):\n'
+            '        os.remove(not_finished_file)\n'
+            '    else:\n'
+            '        with open("{}/{}_MissingNotFinished.txt".format(data_dir, task_name), "w") as fin_outfile:\n'
+            '            fin_outfile.write("not finished file was missing when trying to remove it")\n'
         )
         buff.writeIndentedLines(code)
         buff.setIndentLevel(+1, relative=True)
