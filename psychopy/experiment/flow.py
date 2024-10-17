@@ -400,7 +400,7 @@ class Flow(list):
                     "  dictionary: expInfo,\n"
                     "  title: 'Starting up',\n"
                     "  text: 'Downloading and starting up this part of the experiment.<br>The OK button will be enabled once everything is downloaded.<br>Press OK to proceed.',\n"
-                    "  requireParticipantClick: false}));\n"
+                    "  requireParticipantClick: true}));\n"
                     "\n"
                     "const flowScheduler = new Scheduler(psychoJS);\n"
                     "const dialogCancelScheduler = new Scheduler(psychoJS);\n"
