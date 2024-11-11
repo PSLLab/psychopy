@@ -1591,16 +1591,6 @@ class BaseVisualComponent(BaseComponent):
             buff.writeIndented(f"// *{params['name']}* not supported by PsychoJS\n")
             return
 
-        # set parameters that need updating every frame
-        # do any params need updating? (this method inherited from _base)
-        if self.checkNeedToUpdate('set every frame'):
-            buff.writeIndentedLines(f"\nif ({params['name']}.status === PsychoJS.Status.STARTED){{ "
-                                    f"// only update if being drawn\n")
-            buff.setIndentLevel(+1, relative=True)  # to enter the if block
-            self.writeParamUpdatesJS(buff, 'set every frame')
-            buff.setIndentLevel(-1, relative=True)  # to exit the if block
-            buff.writeIndented("}\n")
-
         buff.writeIndentedLines(f"\n// *{params['name']}* updates\n")
         # writes an if statement to determine whether to draw etc
         indented = self.writeStartTestCodeJS(buff)
@@ -1614,6 +1604,17 @@ class BaseVisualComponent(BaseComponent):
                     "\n"
                 )
                 indented -= 1
+
+        # set parameters that need updating every frame
+        # do any params need updating? (this method inherited from _base)
+        if self.checkNeedToUpdate('set every frame'):
+            buff.writeIndentedLines(f"\nif ({params['name']}.status === PsychoJS.Status.STARTED){{ "
+                                    f"// only update if being drawn\n")
+            buff.setIndentLevel(+1, relative=True)  # to enter the if block
+            self.writeParamUpdatesJS(buff, 'set every frame')
+            buff.setIndentLevel(-1, relative=True)  # to exit the if block
+            buff.writeIndented("}\n")
+
         # writes an if statement to determine whether to draw etc
         indented = self.writeStopTestCodeJS(buff)
         if indented:
