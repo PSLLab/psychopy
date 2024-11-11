@@ -1007,7 +1007,7 @@ class Routine(list):
                 "if (%(name)sMaxDurationReached) {{\n"
                 "    %(name)sClock.add(%(name)sMaxDuration);\n"
                 "}} else {{\n"
-                "    %(name)sClock.add(-{:f});\n"
+                "    %(name)sClock.add({:f});\n"
                 "}}\n"
             ).format(maxTime)
             buff.writeIndented(code % self.params)
